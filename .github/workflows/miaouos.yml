@@ -26,10 +26,10 @@ jobs:
           sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3
 
       - name: Build independent Linux system
-        run: JOBS=2 ./scripts/build.sh
+        run: JOBS=2 bash ./scripts/build.sh
 
       - name: Boot in QEMU and capture screen
-        run: xvfb-run -a ./scripts/test-qemu.sh
+        run: xvfb-run -a bash ./scripts/test-qemu.sh
 
       - name: Upload kernel, initramfs, logs and screenshots
         if: always()
