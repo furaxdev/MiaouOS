@@ -44,6 +44,8 @@ fi
 if [[ ! -x "$BB/busybox" ]]; then
   make -C "$BB" defconfig
   sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' "$BB/.config"
+  sed -i 's/^CONFIG_TC=y/# CONFIG_TC is not set/' "$BB/.config"
+  yes '' | make -C "$BB" oldconfig
   make -C "$BB" -j"$JOBS"
 fi
 
@@ -52,28 +54,12 @@ rm -rf "$ROOTFS"
 mkdir -p "$ROOTFS"/{bin,sbin,etc,proc,sys,dev,dev/pts,tmp,run,usr/bin,usr/sbin,root}
 chmod 1777 "$ROOTFS/tmp"
 make -C "$BB" CONFIG_PREFIX="$ROOTFS" install
-cp "$ROOT/src/init" "$ROOTFS/init"
-cp "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
-chmod +x "$ROOTFS/init" "$ROOTFS/usr/bin/miaoudesk"
+install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
+install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
 ln -sf /usr/bin/miaoudesk "$ROOTFS/bin/miaoudesk"
 cat > "$ROOTFS/etc/issue" <<'ISSUE'
-MiaouOS 0.1 - independent Linux system\n
+MiaouOS 0.1 - Le Linux des chats !
 ISSUE
-cat > "$ROOTFS/init" <<'INIT'
-#!/bin/sh
-export HOME=/root
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-mount -t proc proc /proc 2>/dev/null || true
-mount -t sysfs sysfs /sys 2>/dev/null || true
-mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
-mount -t tmpfs tmpfs /tmp 2>/dev/null || true
-mkdir -p /dev/pts /run
-mount -t devpts devpts /dev/pts 2>/dev/null || true
-printf '\n[MiaouOS] MiaouCore is starting...\n' > /dev/ttyS0 2>/dev/null || true
-printf 'MIAOUOS_BOOT_OK\n' > /dev/ttyS0 2>/dev/null || true
-exec /bin/miaoudesk
-INIT
-chmod +x "$ROOTFS/init"
 
 (
   cd "$ROOTFS"
