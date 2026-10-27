@@ -45,7 +45,7 @@ if [[ ! -x "$BB/busybox" ]]; then
   make -C "$BB" defconfig
   sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' "$BB/.config"
   sed -i 's/^CONFIG_TC=y/# CONFIG_TC is not set/' "$BB/.config"
-  yes '' | make -C "$BB" oldconfig
+  make -C "$BB" oldconfig </dev/null
   make -C "$BB" -j"$JOBS"
 fi
 
