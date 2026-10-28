@@ -180,7 +180,7 @@ int main(void) {
                 packet[packet_n++]=v;
                 if(packet_n==3){
                     mouse_x+=(int8_t)packet[1]; mouse_y-=(int8_t)packet[2];
-                    if(mouse_x<0)mouse_x=0;if(mouse_y<0)mouse_y=0;
+                    if (mouse_x < 0) mouse_x = 0;\n                    if (mouse_y < 0) mouse_y = 0;
                     if(mouse_x>=(int)screen_w)mouse_x=(int)screen_w-1;
                     if(mouse_y>=(int)screen_h)mouse_y=(int)screen_h-1;
                     int left=packet[0]&1;
