@@ -8,7 +8,8 @@ while :; do
  echo "  4. Miaou Store"
  echo "  5. Paramètres"
  echo "  6. Miaou Cursors"
- echo "  7. Miaou Neko"
+ echo "  7. Miaou Neko (état)"
+ echo "  8. Lancer Miaou Neko"
  echo "  0. Retour"
  printf '\n  Choix : '
  IFS= read -r c || exit 0
