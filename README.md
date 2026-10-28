@@ -8,10 +8,10 @@ MiaouOS est une distribution Linux indépendante construite depuis les sources a
 
 - Noyau Linux 6.12.30 et BusyBox 1.37.0 compilés depuis les sources.
 - Initramfs et processus `/init` propres à MiaouOS.
-- MiaouDesk, interface console de démarrage.
+- MiaouDesk : lanceur graphique framebuffer (si le noyau fournit `/dev/fb0`) avec clics souris et raccourcis clavier; repli automatique vers la console.
 - Lanceur console `miaou-apps`.
 - Outils console `miaou-files`, `miaou-monitor`, `miaou-network`.
-- Miaou Store (`miaou`) et interface scriptable `miaou-get), avec moteur partagé et format local `.miaou`.
+- Miaou Store (`miaou`) et interface scriptable `miaou-get`, avec moteur partagé et format local `.miaou`.
 - Un paquet d'exemple Miaou Welcome livré dans l'image.
 - MiaouUI : primitives TUI shell.
 - Miaou Cursors : détection et sélection de thèmes installés.
@@ -20,13 +20,13 @@ MiaouOS est une distribution Linux indépendante construite depuis les sources a
 
 ## État réel — à lire avant test
 
-**Cette branche n'est pas encore un OS de bureau complet.** Le bureau est actuellement en console : il n'y a pas encore de compositeur graphique Wayland, de gestionnaire de fenêtres, d'installateur, de dépôt réseau signé, de dépendances du gestionnaire de paquets ou de compatibilité Windows validée. Miaou Neko est une animation console, pas encore un compagnon flottant sur un bureau graphique. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
+**Cette branche n'est pas encore un OS de bureau complet.** Le bureau graphique actuel est un lanceur framebuffer à plein écran, pas encore une session Wayland ni un gestionnaire de fenêtres avec fenêtres redimensionnables. L'installateur, le dépôt réseau signé, les dépendances du gestionnaire de paquets et la compatibilité Windows validée restent à faire. Miaou Neko est une animation console, pas encore un compagnon flottant sur un bureau graphique. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
 
 Les cases de la feuille de route indiquent le code présent, pas nécessairement des tests d'exécution réussis. Le CI doit confirmer la compilation et le démarrage QEMU avant de considérer l'image vérifiée.
 
 ## Commandes utiles
 
-- `miaou-apps` : lanceur d'applications console.
+- `miaou-apps` : lanceur d'applications console, accessible aussi depuis MiaouDesk graphique.
 - `miaou-files` : gestionnaire de fichiers console.
 - `miaou-monitor` : aperçu mémoire et processus.
 - `miaou-network` : état des interfaces, routes et test ping.
