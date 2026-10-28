@@ -58,7 +58,7 @@ chmod 1777 "$ROOTFS/tmp"
 make -C "$BB" CONFIG_PREFIX="$ROOTFS" install
 install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
 install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
-gcc -std=c11 -O2 -Wall -Wextra -static "$ROOT/src/miaoudesk-gui.c" -o "$ROOTFS/usr/bin/miaoudesk-gui"
+gcc -std=c11 -O2 -Wall -Wextra -static "$ROOT/src/miaoudesk-desktop.c" -o "$ROOTFS/usr/bin/miaoudesk-gui"
 install -D -m 0755 "$ROOT/src/usr/bin/miaou" "$ROOTFS/usr/bin/miaou"
 install -D -m 0755 "$ROOT/src/usr/bin/miaou-get" "$ROOTFS/usr/bin/miaou-get"
 install -D -m 0644 "$ROOT/src/usr/lib/miaou/package-engine.sh" "$ROOTFS/usr/lib/miaou/package-engine.sh"
