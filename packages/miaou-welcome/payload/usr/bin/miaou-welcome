@@ -1,0 +1,10 @@
+#!/bin/sh
+cat <<'WELCOME'
+  /_/\\
+ ( o.o )   Bienvenue dans MiaouOS !
+  > ^ <
+
+  Le Linux des chats !
+WELCOME
+echo
+echo "MiaouOS est en développement. Merci de tester prudemment."
