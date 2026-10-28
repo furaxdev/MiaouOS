@@ -7,6 +7,7 @@ while :; do
  echo "  3. Désactiver Miaou Neko"
  echo "  4. Lister les thèmes de curseurs"
  echo "  5. Afficher les paquets installés"
+ echo "  6. Lancer Miaou Neko (animation console)"
  echo "  0. Quitter"
  printf '\n  Choix : '
  IFS= read -r c || exit 0
@@ -16,6 +17,7 @@ while :; do
   3) miaou-neko off; read -r _ ;;
   4) miaou-cursors list; read -r _ ;;
   5) miaou-get list; read -r _ ;;
+  6) miaou-neko play ;;
   0) exit 0 ;;
   *) echo "Choix invalide"; sleep 1 ;;
  esac
