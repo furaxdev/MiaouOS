@@ -18,9 +18,10 @@ BANNER
   printf '       > ^ <\n\n'
   printf '  [1] Informations système\n'
   printf '  [2] Terminal\n'
-  printf '  [3] Redémarrer\n'
-  printf '  [4] Éteindre\n\n'
-  printf '  Sélectionnez une option (1-4) : '
+  printf '  [3] Miaou Store (gestionnaire de paquets)\n'
+  printf '  [4] Redémarrer\n'
+  printf '  [5] Éteindre\n\n'
+  printf '  Sélectionnez une option (1-5) : '
   read choice
   case "$choice" in
     1)
@@ -34,9 +35,12 @@ BANNER
       /bin/sh
       ;;
     3)
-      reboot -f
+      /usr/bin/miaou
       ;;
     4)
+      reboot -f
+      ;;
+    5)
       poweroff -f
       ;;
     *)
