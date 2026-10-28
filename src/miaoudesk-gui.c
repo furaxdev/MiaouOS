@@ -165,7 +165,7 @@ int main(void) {
     setup_buttons();
     mouse_x=(int)screen_w/2; mouse_y=(int)screen_h/2;
     mousefd=open("/dev/input/mice",O_RDONLY|O_NONBLOCK);
-    enter_graphics_mode(); draw_ui();
+    enter_graphics_mode(); draw_ui();\n    { int serial = open("/dev/ttyS0", O_WRONLY | O_CLOEXEC); if (serial >= 0) { const char marker[] = "MIAOUDESK_GUI_OK\\n"; (void)write(serial, marker, sizeof(marker)-1); close(serial); } }
     unsigned char packet[3]; int packet_n=0; unsigned char buf[64];
     for(;;){
         struct pollfd fds[2]={{STDIN_FILENO,POLLIN,0},{mousefd,POLLIN,0}};
