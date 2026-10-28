@@ -10,7 +10,7 @@ KERNEL_VERSION=6.12.30
 BUSYBOX_VERSION=1.37.0
 
 need() { command -v "$1" >/dev/null 2>&1 || { printf 'Missing required tool: %s\n' "$1" >&2; exit 1; }; }
-for tool in gcc make wget tar xz cpio gzip; do need "$tool"; done
+for tool in gcc make wget tar xz cpio gzip grub-mkrescue xorriso; do need "$tool"; done
 
 fetch() {
   local url="$1" out="$2"
@@ -89,5 +89,19 @@ ISSUE
   find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9
 ) > "$BUILD/miaouos-initramfs.cpio.gz"
 cp "$KERNEL/arch/x86/boot/bzImage" "$BUILD/miaouos-kernel-bzImage"
-sha256sum "$BUILD/miaouos-kernel-bzImage" "$BUILD/miaouos-initramfs.cpio.gz" > "$BUILD/SHA256SUMS"
-printf 'Kernel and initramfs built.\n'
+ISO_ROOT="$WORK/iso-root"
+rm -rf "$ISO_ROOT"
+mkdir -p "$ISO_ROOT/boot/grub"
+cp "$BUILD/miaouos-kernel-bzImage" "$ISO_ROOT/boot/miaouos-kernel-bzImage"
+cp "$BUILD/miaouos-initramfs.cpio.gz" "$ISO_ROOT/boot/miaouos-initramfs.cpio.gz"
+cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'GRUB'
+set timeout=5
+set default=0
+menuentry "MiaouOS — Le Linux des chats !" {
+    linux /boot/miaouos-kernel-bzImage console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5
+    initrd /boot/miaouos-initramfs.cpio.gz
+}
+GRUB
+grub-mkrescue -o "$BUILD/miaouos.iso" "$ISO_ROOT" >/dev/null
+sha256sum "$BUILD/miaouos-kernel-bzImage" "$BUILD/miaouos-initramfs.cpio.gz" "$BUILD/miaouos.iso" > "$BUILD/SHA256SUMS"
+printf 'Kernel, initramfs and bootable BIOS ISO built.\n'
