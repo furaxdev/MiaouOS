@@ -55,7 +55,7 @@ miaou_install() {
   case "$name" in ''|*[!A-Za-z0-9._+-]*) echo "Nom de paquet invalide." >&2; return 1;; esac
   case "$version" in ''|*[!A-Za-z0-9._+-]*) echo "Version invalide." >&2; return 1;; esac
   [ -n "$description" ] || description="Sans description"
-  if grep -F "$name|" "$MIAOU_DB" >/dev/null 2>&1; then
+  if awk -F '|' -v n="$name" '$1 == n { found=1 } END { exit !found }' "$MIAOU_DB"; then
     echo "Le paquet $name est déjà enregistré. La mise à jour sera prise en charge dans une prochaine version." >&2
     return 1
   fi
@@ -87,14 +87,14 @@ miaou_remove() {
   miaou_need_root || return 1
   miaou_init_dirs
   case "$name" in ''|*[!A-Za-z0-9._+-]*) echo "Nom de paquet invalide." >&2; return 1;; esac
-  grep -F "|$name|" "$MIAOU_DB" >/dev/null 2>&1 || {
+  awk -F '|' -v n="$name" '$1 == n { found=1 } END { exit !found }' "$MIAOU_DB" || {
     echo "Paquet non enregistré: $name" >&2
     return 1
   }
   target="$MIAOU_PACKAGE_ROOT/$name"
   rm -rf "$target"
   rm -f "$(dirname "$MIAOU_DB")/$name.files"
-  grep -v "^$name|" "$MIAOU_DB" > "$MIAOU_DB.tmp"
+  awk -F '|' -v n="$name" '$1 != n' "$MIAOU_DB" > "$MIAOU_DB.tmp"
   mv "$MIAOU_DB.tmp" "$MIAOU_DB"
   echo "Paquet supprimé de son répertoire isolé: $name"
 }
@@ -119,7 +119,7 @@ MiaouOS — gestionnaire de paquets
 Usage: miaou-get <commande> [arguments]
   list                 Afficher les paquets enregistrés
   install fichier.miaou Installer une archive locale
-  remove nom           Désinstaller (désactivation de sécurité pour le moment)
+  remove nom           Supprimer un paquet isolé
   search texte         Chercher dans le catalogue local
   help                 Afficher cette aide
 
