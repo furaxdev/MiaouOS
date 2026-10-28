@@ -27,7 +27,8 @@ jobs:
 
       - name: Check shell syntax and package engine
         run: |
-          gcc -fsyntax-only -std=c11 -Wall -Wextra ./src/miaoudesk-gui.c\n          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh ./scripts/test-iso-qemu.sh
+          gcc -fsyntax-only -std=c11 -Wall -Wextra ./src/miaoudesk-gui.c
+          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh ./scripts/test-iso-qemu.sh
           sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/bin/miaou-cursors ./src/usr/bin/miaou-neko ./src/usr/bin/miaou-settings ./src/usr/bin/miaou-files ./src/usr/bin/miaou-monitor ./src/usr/bin/miaou-network ./src/usr/bin/miaou-run ./src/usr/bin/miaou-apps ./src/usr/lib/miaou/package-engine.sh ./src/usr/lib/miaou/ui.sh ./src/usr/lib/miaou/cursors.sh ./src/usr/lib/miaou/neko.sh
           bash ./scripts/test-miaou-ui.sh
           sudo --preserve-env=MIAOU_DB,MIAOU_CACHE,MIAOU_REPO,MIAOU_PACKAGE_ROOT bash ./scripts/test-package-engine.sh
