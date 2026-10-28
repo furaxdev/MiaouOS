@@ -1,57 +1,42 @@
-# MiaouOS — Feuille de route
+# MiaouOS — feuille de route
 
-**Slogan :** « MiaouOS — Le Linux des chats ! »
+MiaouOS doit devenir un système Linux réellement utilisable, accessible et distinctif. Les cases cochées désignent des prototypes présents dans le dépôt, pas une validation de production.
 
-MiaouOS vise une distribution indépendante construite à partir des sources amont, avec un noyau Linux, un espace utilisateur minimal, puis son propre environnement de bureau et son écosystème. Les fonctionnalités non implémentées restent explicitement marquées comme prévues.
+## Noyau et démarrage
+- [x] Compilation du noyau et BusyBox en CI.
+- [x] Initramfs et lancement de MiaouDesk en console.
+- [ ] Tests QEMU entièrement verts et reproductibles.
+- [ ] Comptes utilisateurs, permissions, journaux, réseau et arrêt propre.
+- [ ] Détection matérielle et installation sur de vraies machines.
 
-## 0.1 — MiaouCore (priorité immédiate)
-- [x] Pipeline de compilation : noyau Linux amont + BusyBox compilé depuis les sources.
-- [x] Initramfs et interface console MiaouDesk.
-- [x] Workflow CI avec test de démarrage QEMU et capture d'écran.
-- [ ] Premier build CI entièrement vert.
-- [ ] Vérifier le démarrage de MiaouDesk dans QEMU et contrôler le contenu de la capture.
-- [ ] Ajouter des tests reproductibles du script init et de l'initramfs.
+## Miaou Package Manager
+- [x] Format local .miaou, moteur partagé, miaou et miaou-get.
+- [x] Recherche locale, installation et suppression isolées.
+- [ ] Signatures, index signé et dépôt réseau.
+- [ ] Résolution de dépendances, conflits, mises à jour atomiques et retour arrière.
 
-## 0.2 — Fondations du système
-- [ ] Définir les conventions de configuration, journaux, services et chemins système.
-- [ ] Ajouter un système de stockage persistant et un installateur sûr.
-- [ ] Documenter les mises à jour, la récupération et les sommes de contrôle.
-- [ ] Définir une politique de sécurité et de provenance des paquets.
+## MiaouUI et Store
+- [x] Primitives console et menu clavier.
+- [ ] Navigation souris, focus, listes, champs, dialogues, onglets.
+- [ ] Toolkit graphique partagé et catalogue en ligne.
 
-## 0.3 — MiaouUI TUI
-- [ ] Concevoir une bibliothèque TUI réutilisable : composants, layout, événements, focus et thèmes.\n- [ ] Remplacer le menu shell de Miaou Store par des composants MiaouUI réutilisables.
-- [ ] Prendre en charge le clavier en premier, puis les séquences souris compatibles avec les terminaux.
-- [ ] Créer des widgets : boutons, listes, champs, onglets, dialogues et barres de progression.
-- [ ] Fournir des tests de rendu sur terminaux de tailles différentes.
+## MiaouDesk graphique
+- [ ] Serveur graphique/compositeur, sessions et fenêtres.
+- [ ] Panneau, dock, lanceur, notifications et paramètres.
+- [ ] Gestionnaire de fichiers, terminal, éditeur, navigateur et accessibilité tactile.
 
-## 0.4 — Paquets
-- [x] Définir un premier format .miaou (archive tar.gz avec manifest et payload isolé).
-- [ ] Ajouter sommes de contrôle, signatures et vérification de provenance.
-- [ ] Concevoir un dépôt signé et un mécanisme de résolution des dépendances.
-- [x] Implémenter un moteur initial commun, appelé par miaou et miaou-get.
-- [x] miaou-get : commandes de base scriptables (list, install local, remove isolé, search local).
-- [x] miaou : menu TUI initial pour les opérations de base.
-- [ ] Ajouter un catalogue réseau, la mise à jour des paquets et les dépendances.
-- [ ] Construire MiaouUI comme bibliothèque TUI indépendante et réutilisable.
+## Miaou Cursors
+- [x] Détection et sélection de thèmes de curseurs existants.
+- [ ] Catalogue officiel et aperçu graphique.
 
-## 0.5 — MiaouDesk graphique
-- [ ] Choisir une pile graphique adaptée au matériel visé.
-- [ ] Développer session, panneau/dock, lanceur et paramètres.
-- [ ] Ajouter prise en charge de la souris, du tactile et de l'accessibilité.
-- [ ] Construire un catalogue de thèmes de curseurs avec aperçu et retour arrière.
+## Miaou Neko
+- [x] Réglage on/off.
+- [ ] Compagnon animé réel intégré au bureau.
 
-## 0.6 — Miaou Neko
-- [ ] Créer un compagnon de bureau original inspiré des animaux de bureau classiques.
-- [ ] Ajouter un interrupteur dans les paramètres, animations et préférences de comportement.
-- [ ] Respecter les réglages d'accessibilité et permettre la désactivation complète.
+## Compatibilité Windows
+- [x] Stratégie documentée.
+- [ ] Intégration optionnelle de Wine, détection et tests de compatibilité.
 
-## 0.7 — Compatibilité applicative
-- [ ] Étudier Wine et les couches de compatibilité existantes avant de réinventer leur travail.
-- [ ] Isoler les applications et documenter les limites, performances et dépendances.
-- [ ] Évaluer séparément les composants de ReactOS : ce n'est pas une couche d'exécution Windows prête à intégrer directement.
-- [ ] Ne jamais promettre une compatibilité universelle.
-
-## Principes de qualité
-- Construire et tester une fonctionnalité avant de la déclarer terminée.
-- Ne pas confondre une maquette, un prototype console et un bureau graphique fonctionnel.
-- Préserver la reproductibilité, la sécurité des mises à jour et la transparence sur les composants tiers.
+## Distribution
+- [ ] Tests complets, ISO BIOS/UEFI, sommes de contrôle et récupération.
+- [ ] Installateur, documentation complète et versions stables.
