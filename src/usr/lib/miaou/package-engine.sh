@@ -49,20 +49,27 @@ miaou_install() {
   case "$name" in ''|*[!A-Za-z0-9._+-]*) echo "Nom de paquet invalide." >&2; return 1;; esac
   case "$version" in ''|*[!A-Za-z0-9._+-]*) echo "Version invalide." >&2; return 1;; esac
   [ -n "$description" ] || description="Sans description"
-  if grep -F "|$name|" "$MIAOU_DB" >/dev/null 2>&1; then
+  if grep -F "$name|" "$MIAOU_DB" >/dev/null 2>&1; then
     echo "Le paquet $name est déjà enregistré. La mise à jour sera prise en charge dans une prochaine version." >&2
     return 1
   fi
-  (cd "$work/payload" && find . -type f -o -type l) > "$work/files"
+  if find "$work/payload" -type l | grep . >/dev/null 2>&1; then
+    echo "Archive refusée: les liens symboliques ne sont pas acceptés." >&2
+    return 1
+  fi
+  (cd "$work/payload" && find . -type f) > "$work/files"
+  target="/opt/miaou/packages/$name"
+  [ ! -e "$target" ] || { echo "Dossier de paquet déjà présent: $target" >&2; return 1; }
   while IFS= read -r rel; do
     rel=${rel#./}
     case "$rel" in ''|/*|..|../*|*/../*|*/..) echo "Chemin de fichier refusé: $rel" >&2; return 1;; esac
   done < "$work/files"
+  mkdir -p "$target"
   while IFS= read -r rel; do
     rel=${rel#./}
     [ -n "$rel" ] || continue
-    mkdir -p "/$(dirname "$rel")"
-    cp -a "$work/payload/$rel" "/$rel" || return 1
+    mkdir -p "$target/$(dirname "$rel")"
+    cp "$work/payload/$rel" "$target/$rel" || return 1
   done < "$work/files"
   printf '%s|%s|%s\n' "$name" "$version" "$description" >> "$MIAOU_DB"
   cp "$work/files" "$(dirname "$MIAOU_DB")/$name.files"
@@ -78,10 +85,12 @@ miaou_remove() {
     echo "Paquet non enregistré: $name" >&2
     return 1
   }
-  # Never delete installed files automatically until ownership/conflict tracking is stronger.
-  echo "Désinstallation bloquée pour sécurité: le suivi des fichiers partagés doit être renforcé."
-  echo "Le paquet reste installé. Aucune donnée n'a été supprimée."
-  return 2
+  target="/opt/miaou/packages/$name"
+  rm -rf "$target"
+  rm -f "$(dirname "$MIAOU_DB")/$name.files"
+  grep -v "^$name|" "$MIAOU_DB" > "$MIAOU_DB.tmp"
+  mv "$MIAOU_DB.tmp" "$MIAOU_DB"
+  echo "Paquet supprimé de son répertoire isolé: $name"
 }
 
 miaou_search() {
