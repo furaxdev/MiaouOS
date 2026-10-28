@@ -85,6 +85,8 @@ log = serial.read_text(errors='replace') if serial.exists() else ''
 (build / 'qemu-serial.log').write_text(log)
 if 'MIAOUOS_BOOT_OK' not in log:
     raise RuntimeError('Boot marker missing from serial log. See build/qemu-serial.log')
+if 'MIAOUDESK_GUI_OK' not in log:
+    raise RuntimeError('Graphical MiaouDesk did not start. Check framebuffer and input kernel configuration.')
 if 'MiaouOS' not in log and 'MIAOUOS_BOOT_OK' not in log:
     raise RuntimeError('Expected MiaouOS text missing from serial log')
 print(f'Boot marker found. Screenshot: {screenshot}')
