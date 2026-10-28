@@ -1,0 +1,44 @@
+#!/bin/sh
+. /usr/lib/miaou/package-engine.sh
+
+while :; do
+  printf '\033[2J\033[H'
+  printf '\033[1;35m  Miaou Store — Le catalogue des chats !\033[0m\n\n'
+  printf '  1. Paquets installés\n'
+  printf '  2. Rechercher dans le catalogue local\n'
+  printf '  3. Installer un fichier .miaou\n'
+  printf '  4. Aide de miaou-get\n'
+  printf '  0. Quitter\n\n'
+  printf '  Votre choix : '
+  IFS= read -r choice || exit 0
+  case "$choice" in
+    1)
+      printf '\n'
+      miaou_list
+      printf '\nEntrée pour continuer...'
+      IFS= read -r pause
+      ;;
+    2)
+      printf '\nRecherche : '
+      IFS= read -r query
+      [ -n "$query" ] && miaou_search "$query"
+      printf '\nEntrée pour continuer...'
+      IFS= read -r pause
+      ;;
+    3)
+      printf '\nChemin du fichier .miaou : '
+      IFS= read -r archive
+      [ -n "$archive" ] && miaou_install "$archive"
+      printf '\nEntrée pour continuer...'
+      IFS= read -r pause
+      ;;
+    4)
+      printf '\n'
+      miaou_help
+      printf '\nEntrée pour continuer...'
+      IFS= read -r pause
+      ;;
+    0) exit 0 ;;
+    *) printf '\nChoix invalide.\n'; sleep 1 ;;
+  esac
+done
