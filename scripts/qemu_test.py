@@ -51,18 +51,26 @@ try:
         raise RuntimeError('QEMU QMP socket did not appear')
     stream = sock.makefile('rwb', buffering=0)
     stream.readline()
-    stream.write(b'{"execute":"qmp_capabilities"}\n')
+    stream.write(b'{"execute":"qmp_capabilities"}\\n')
     stream.readline()
     time.sleep(12)
-    stream.write((f'{{"execute":"screendump","arguments":{{"filename":"{screenshot}"}}}}\n').encode())
+    stream.write((f'{{"execute":"screendump","arguments":{{"filename":"{screenshot}"}}}}\\n').encode())
     response = stream.readline()
     if b'error' in response.lower():
         raise RuntimeError(f'QMP screendump failed: {response.decode(errors="replace")}')
     time.sleep(2)
-    stream.write(b'{"execute":"quit"}\n')
+    stream.write(b'{"execute":"quit"}\\n')
     stream.close()
     sock.close()
-    proc.wait(timeout=10)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
 finally:
     if proc.poll() is None:
         proc.terminate()
@@ -70,6 +78,7 @@ finally:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+            proc.wait(timeout=5)
 if not screenshot.exists() or screenshot.stat().st_size < 1000:
     raise RuntimeError('Screenshot missing or unexpectedly small')
 log = serial.read_text(errors='replace') if serial.exists() else ''
