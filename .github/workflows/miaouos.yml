@@ -25,6 +25,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3
 
+      - name: Check shell syntax and package engine
+        run: |
+          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh
+          sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/lib/miaou/package-engine.sh
+          sudo bash ./scripts/test-package-engine.sh
+
       - name: Build independent Linux system
         run: JOBS=2 bash ./scripts/build.sh
 
