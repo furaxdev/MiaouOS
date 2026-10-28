@@ -38,7 +38,9 @@ jobs:
       - name: Boot in QEMU and capture screen
         run: xvfb-run -a bash ./scripts/test-qemu.sh
 
-      - name: Boot the generated ISO in QEMU\n        run: bash ./scripts/test-iso-qemu.sh\n\n      - name: Upload kernel, initramfs, logs and screenshots
+      - name: Boot the generated ISO in QEMU
+        run: bash ./scripts/test-iso-qemu.sh
+
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -46,6 +48,8 @@ jobs:
           path: |
             build/miaouos-kernel-bzImage
             build/miaouos-initramfs.cpio.gz
+            build/miaouos.iso
+            build/iso-serial.log
             build/SHA256SUMS
             build/qemu-serial.log
             build/screenshots/*.png
