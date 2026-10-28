@@ -3,6 +3,7 @@
 MIAOU_DB=${MIAOU_DB:-/var/lib/miaou/installed}
 MIAOU_CACHE=${MIAOU_CACHE:-/var/cache/miaou}
 MIAOU_REPO=${MIAOU_REPO:-/var/lib/miaou/repository}
+MIAOU_PACKAGE_ROOT=${MIAOU_PACKAGE_ROOT:-/opt/miaou/packages}
 
 miaou_need_root() {
   [ "$(id -u)" = 0 ] || { echo "miaou: cette opération nécessite root." >&2; return 1; }
@@ -38,6 +39,11 @@ miaou_install() {
     echo "Archive refusée: chemin non sûr." >&2
     return 1
   fi
+  tar -tvzf "$archive" > "$work/listing" 2>/dev/null || { echo "Archive .miaou invalide." >&2; return 1; }
+  if ! awk 'substr($0,1,1) == "-" || substr($0,1,1) == "d" { next } { bad=1 } END { exit bad }' "$work/listing"; then
+    echo "Archive refusée: seuls les fichiers et dossiers sont acceptés." >&2
+    return 1
+  fi
   tar -xzf "$archive" -C "$work" || return 1
   [ -f "$work/manifest" ] && [ -d "$work/payload" ] || {
     echo "Format invalide: manifest et payload/ requis." >&2
@@ -58,7 +64,7 @@ miaou_install() {
     return 1
   fi
   (cd "$work/payload" && find . -type f) > "$work/files"
-  target="/opt/miaou/packages/$name"
+  target="$MIAOU_PACKAGE_ROOT/$name"
   [ ! -e "$target" ] || { echo "Dossier de paquet déjà présent: $target" >&2; return 1; }
   while IFS= read -r rel; do
     rel=${rel#./}
