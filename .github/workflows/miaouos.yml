@@ -41,6 +41,7 @@ jobs:
       - name: Boot the generated ISO in QEMU
         run: bash ./scripts/test-iso-qemu.sh
 
+      - name: Upload kernel, initramfs, ISO, logs and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
