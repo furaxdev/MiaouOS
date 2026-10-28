@@ -28,9 +28,10 @@ miaou_install() (
  printf '%s|%s|%s\n' "$name" "$version" "$description" >> "$MIAOU_DB"; echo "Installé: $name $version dans $target"
 )
 miaou_remove() { name=$1; miaou_need_root || return 1; miaou_init_dirs; case "$name" in ''|*[!A-Za-z0-9._+-]*) echo "Nom invalide." >&2; return 1;; esac; awk -F '|' -v n="$name" '$1==n {found=1} END {exit !found}' "$MIAOU_DB" || { echo "Paquet inconnu." >&2; return 1; }; target="$MIAOU_PACKAGE_ROOT/$name"; case "$target" in "$MIAOU_PACKAGE_ROOT/"*) rm -rf -- "$target" || return 1;; *) return 1;; esac; awk -F '|' -v n="$name" '$1!=n' "$MIAOU_DB" > "$MIAOU_DB.tmp" && mv "$MIAOU_DB.tmp" "$MIAOU_DB"; echo "Supprimé: $name"; }
+miaou_catalog() { miaou_init_dirs; found=0; for m in "$MIAOU_REPO"/*.manifest; do [ -f "$m" ] || continue; echo "----------------------------------------"; sed -n -e 's/^name=/Paquet : /p' -e 's/^version=/Version : /p' -e 's/^description=/Description : /p' "$m"; found=1; done; [ "$found" = 1 ] || echo "Le catalogue local est vide."; }
 miaou_search() { query=$1; found=0; for m in "$MIAOU_REPO"/*.manifest; do [ -f "$m" ] || continue; if grep -i -q -e "$query" "$m"; then sed -n -e 's/^name=/Paquet: /p' -e 's/^version=/Version: /p' -e 's/^description=/Description: /p' "$m"; printf '\n'; found=1; fi; done; [ "$found" = 1 ] || echo "Aucun résultat dans le catalogue local."; }
 miaou_help() { cat <<'HELP'
-miaou-get list | search TEXTE | install FICHIER.miaou | remove NOM | verify FICHIER.miaou
+miaou-get list | catalog | search TEXTE | install FICHIER.miaou | remove NOM | verify FICHIER.miaou
 Format local tar.gz : manifest + payload/. Les paquets restent isolés dans /opt/miaou/packages.
 Les signatures et le dépôt réseau ne sont pas encore disponibles.
 HELP
