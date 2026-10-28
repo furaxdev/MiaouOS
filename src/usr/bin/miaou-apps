@@ -20,6 +20,7 @@ while :; do
   5) miaou-settings ;;
   6) miaou-cursors list; printf '\nEntrée...'; IFS= read -r _ ;;
   7) miaou-neko status; printf '\nEntrée...'; IFS= read -r _ ;;
+  8) miaou-neko play ;;
   0) exit 0 ;;
  esac
 done
