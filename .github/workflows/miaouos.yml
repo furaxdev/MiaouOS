@@ -27,9 +27,9 @@ jobs:
 
       - name: Check shell syntax and package engine
         run: |
-          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh
-          sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/lib/miaou/package-engine.sh
-          sudo bash ./scripts/test-package-engine.sh
+          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh
+          sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/lib/miaou/package-engine.sh ./src/usr/lib/miaou/ui.sh
+          bash ./scripts/test-miaou-ui.sh\n          sudo bash ./scripts/test-package-engine.sh
 
       - name: Build independent Linux system
         run: JOBS=2 bash ./scripts/build.sh
