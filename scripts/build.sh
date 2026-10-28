@@ -56,7 +56,13 @@ chmod 1777 "$ROOTFS/tmp"
 make -C "$BB" CONFIG_PREFIX="$ROOTFS" install
 install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
 install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou" "$ROOTFS/usr/bin/miaou"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-get" "$ROOTFS/usr/bin/miaou-get"
+install -D -m 0644 "$ROOT/src/usr/lib/miaou/package-engine.sh" "$ROOTFS/usr/lib/miaou/package-engine.sh"
+mkdir -p "$ROOTFS/var/lib/miaou/repository" "$ROOTFS/var/cache/miaou" "$ROOTFS/opt/miaou/packages"
 ln -sf /usr/bin/miaoudesk "$ROOTFS/bin/miaoudesk"
+ln -sf /usr/bin/miaou "$ROOTFS/bin/miaou"
+ln -sf /usr/bin/miaou-get "$ROOTFS/bin/miaou-get"
 cat > "$ROOTFS/etc/issue" <<'ISSUE'
 MiaouOS 0.1 - Le Linux des chats !
 ISSUE
