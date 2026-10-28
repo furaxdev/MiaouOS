@@ -130,7 +130,7 @@ static int text_width(const char *s, int sc) { return (int)strlen(s)*6*sc; }
 #define MAX_WINDOWS 8
 struct window { int x,y,w,h,kind,open,minimized,maximized,oldx,oldy,oldw,oldh; };
 static struct window wins[MAX_WINDOWS];
-static int active=-1, dragging=-1, drag_dx,drag_dy, resizing=-1, prev_left, show_apps=0, theme=0;
+static int active=-1, dragging=-1, drag_dx,drag_dy, resizing=-1, resize_start_x, resize_start_y, resize_start_w, resize_start_h, prev_left, show_apps=0, theme=0;
 static const char *app_names[]={"FICHIERS","NAVIGATEUR","MIAOU STORE","PARAMETRES","TERMINAL","RESEAU","NEKO","A PROPOS"};
 static uint32_t C(unsigned char r,unsigned char g,unsigned char b){return color(r,g,b);}
 static int taskbar_h(void){return screen_h<600?42:52;}
@@ -235,7 +235,8 @@ static void click_desktop(int x,int y){
  for(int i=MAX_WINDOWS-1;i>=0;i--){struct window*w=&wins[i];if(!w->open||w->minimized)continue;
   if(x>=w->x+w->w-25&&x<w->x+w->w&&y>=w->y+4&&y<w->y+28){w->open=0;if(active==i)active=-1;return;}
   if(x>=w->x+w->w-50&&x<w->x+w->w-25&&y>=w->y+4&&y<w->y+28){if(!w->maximized){w->oldx=w->x;w->oldy=w->y;w->oldw=w->w;w->oldh=w->h;w->x=10;w->y=10;w->w=(int)screen_w-20;w->h=(int)screen_h-bh-20;w->maximized=1;}else{w->x=w->oldx;w->y=w->oldy;w->w=w->oldw;w->h=w->oldh;w->maximized=0;}active=i;return;}
-  if(x>=w->x+w->w-74&&x<w->x+w->w-50&&y>=w->y+4&&y<w->y+28){w->minimized=1;return;}
+  if(x>=w->x+w->w-17&&x<w->x+w->w&&y>=w->y+w->h-17&&y<w->y+w->h){active=i;resizing=i;resize_start_x=x;resize_start_y=y;resize_start_w=w->w;resize_start_h=w->h;return;}
+  if(x>=w->x+w->w-74&&x<w->x+w->w-50&&y>=w->y+4&&y<w->y+28){w->minimized=1;if(active==i)active=-1;return;}
   if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+32){active=i;dragging=i;drag_dx=x-w->x;drag_dy=y-w->y;return;}
   if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+w->h){active=i;if(w->kind==3&&y>w->y+60&&y<w->y+110)theme=!theme;return;}
  }
@@ -251,11 +252,11 @@ int main(void){
  scale=screen_w<800?1:2;mouse_x=80;mouse_y=100;mousefd=open("/dev/input/mice",O_RDONLY|O_NONBLOCK);
  enter_graphics_mode();draw_desktop();
  int serial=open("/dev/ttyS0",O_WRONLY|O_CLOEXEC);if(graphics&&serial>=0){const char marker[]="MIAOUDESK_GUI_OK\n";(void)write(serial,marker,sizeof(marker)-1);close(serial);}
- unsigned char packet[3],buf[64];int pn=0;
+ unsigned char packet[3],buf[64];int pn=0, escape_pending=0;
  for(;;){
   struct pollfd fds[2]={{STDIN_FILENO,POLLIN,0},{mousefd,POLLIN,0}};int nf=mousefd>=0?2:1;int pr=poll(fds,nf,100);
   if(pr<0&&errno==EINTR)continue;
-  if(pr>0&&(fds[0].revents&POLLIN)){unsigned char key;if(read(STDIN_FILENO,&key,1)==1){if(key=='q'||key=='Q')launch_console();else if(key>='1'&&key<='8')app_action(key-'1');else if(key==27)show_apps=0;draw_desktop();}}
-  if(mousefd>=0&&pr>0&&(fds[1].revents&POLLIN)){ssize_t n=read(mousefd,buf,sizeof(buf));for(ssize_t j=0;j<n;j++){unsigned char v=buf[j];if(pn==0&&!(v&8))continue;packet[pn++]=v;if(pn==3){mouse_x+=(int8_t)packet[1];mouse_y-=(int8_t)packet[2];if(mouse_x<0)mouse_x=0;if(mouse_y<0)mouse_y=0;if(mouse_x>=(int)screen_w)mouse_x=(int)screen_w-1;if(mouse_y>=(int)screen_h)mouse_y=(int)screen_h-1;int left=packet[0]&1;if(left&&!prev_left)click_desktop(mouse_x,mouse_y);if(!left&&prev_left)dragging=-1;if(left&&dragging>=0){wins[dragging].x=mouse_x-drag_dx;wins[dragging].y=mouse_y-drag_dy;}prev_left=left;pn=0;draw_desktop();}}}
+  if(pr>0&&(fds[0].revents&POLLIN)){unsigned char key;if(read(STDIN_FILENO,&key,1)==1){if(escape_pending){if(key=='['){escape_pending=2;}else if(key=='\t'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?step-1:(active+step)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}escape_pending=0;}else escape_pending=0;}else if(escape_pending==2){if(key=='Z'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?MAX_WINDOWS-step:(active-step+MAX_WINDOWS*2)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}}escape_pending=0;}else if(key==27)escape_pending=1;else if(key=='\t'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?step-1:(active+step)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}}else if(key=='q'||key=='Q')launch_console();else if(key>='1'&&key<='8')app_action(key-'1');draw_desktop();}}
+  if(mousefd>=0&&pr>0&&(fds[1].revents&POLLIN)){ssize_t n=read(mousefd,buf,sizeof(buf));for(ssize_t j=0;j<n;j++){unsigned char v=buf[j];if(pn==0&&!(v&8))continue;packet[pn++]=v;if(pn==3){mouse_x+=(int8_t)packet[1];mouse_y-=(int8_t)packet[2];if(mouse_x<0)mouse_x=0;if(mouse_y<0)mouse_y=0;if(mouse_x>=(int)screen_w)mouse_x=(int)screen_w-1;if(mouse_y>=(int)screen_h)mouse_y=(int)screen_h-1;int left=packet[0]&1;if(left&&!prev_left)click_desktop(mouse_x,mouse_y);if(!left&&prev_left){dragging=-1;resizing=-1;}if(left&&dragging>=0){wins[dragging].x=mouse_x-drag_dx;wins[dragging].y=mouse_y-drag_dy;if(wins[dragging].x<0)wins[dragging].x=0;if(wins[dragging].y<0)wins[dragging].y=0;}if(left&&resizing>=0){struct window *rw=&wins[resizing];rw->w=resize_start_w+mouse_x-resize_start_x;rw->h=resize_start_h+mouse_y-resize_start_y;if(rw->w<220)rw->w=220;if(rw->h<120)rw->h=120;if(rw->x+rw->w>(int)screen_w)rw->w=(int)screen_w-rw->x;if(rw->y+rw->h>(int)screen_h-taskbar_h())rw->h=(int)screen_h-taskbar_h()-rw->y;}prev_left=left;pn=0;draw_desktop();}}}
  }
 }
