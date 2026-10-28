@@ -19,18 +19,20 @@ MiaouOS vise une distribution indépendante construite à partir des sources amo
 - [ ] Définir une politique de sécurité et de provenance des paquets.
 
 ## 0.3 — MiaouUI TUI
-- [ ] Concevoir une bibliothèque TUI réutilisable : composants, layout, événements, focus et thèmes.
+- [ ] Concevoir une bibliothèque TUI réutilisable : composants, layout, événements, focus et thèmes.\n- [ ] Remplacer le menu shell de Miaou Store par des composants MiaouUI réutilisables.
 - [ ] Prendre en charge le clavier en premier, puis les séquences souris compatibles avec les terminaux.
 - [ ] Créer des widgets : boutons, listes, champs, onglets, dialogues et barres de progression.
 - [ ] Fournir des tests de rendu sur terminaux de tailles différentes.
 
 ## 0.4 — Paquets
-- [ ] Définir un format .miaou versionné, des métadonnées et des sommes de contrôle.
+- [x] Définir un premier format .miaou (archive tar.gz avec manifest et payload isolé).
+- [ ] Ajouter sommes de contrôle, signatures et vérification de provenance.
 - [ ] Concevoir un dépôt signé et un mécanisme de résolution des dépendances.
-- [ ] Implémenter un moteur commun, appelé par miaou et miaou-get.
-- [ ] miaou : interface conviviale et interactive.
-- [ ] miaou-get : interface stable et scriptable.
-- [ ] Ajouter ensuite Miaou Store, l'interface TUI de gestion des paquets.
+- [x] Implémenter un moteur initial commun, appelé par miaou et miaou-get.
+- [x] miaou-get : commandes de base scriptables (list, install local, remove isolé, search local).
+- [x] miaou : menu TUI initial pour les opérations de base.
+- [ ] Ajouter un catalogue réseau, la mise à jour des paquets et les dépendances.
+- [ ] Construire MiaouUI comme bibliothèque TUI indépendante et réutilisable.
 
 ## 0.5 — MiaouDesk graphique
 - [ ] Choisir une pile graphique adaptée au matériel visé.
