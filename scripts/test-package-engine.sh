@@ -17,6 +17,10 @@ description=Paquet de test MiaouOS
 MANIFEST
 printf 'MiaouOS package test\n' > "$TMP/pkg/payload/usr/share/miaou-demo/hello.txt"
 tar -czf "$TMP/miaou-demo.miaou" -C "$TMP/pkg" manifest payload
+cp "$TMP/pkg/manifest" "$MIAOU_REPO/miaou-demo.manifest"
+miaou_verify "$TMP/miaou-demo.miaou"
+miaou_catalog | grep -q "miaou-demo"
+miaou_search "MiaouOS" | grep -q "miaou-demo"
 
 miaou_install "$TMP/miaou-demo.miaou"
 test -f "$MIAOU_PACKAGE_ROOT/miaou-demo/usr/share/miaou-demo/hello.txt"
