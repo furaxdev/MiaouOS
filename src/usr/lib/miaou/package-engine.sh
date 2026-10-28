@@ -27,7 +27,7 @@ miaou_list() {
   done < "$MIAOU_DB"
 }
 
-miaou_install() {
+miaou_install() (
   archive=$1
   [ -f "$archive" ] || { echo "Archive introuvable: $archive" >&2; return 1; }
   miaou_need_root || return 1
@@ -80,7 +80,7 @@ miaou_install() {
   printf '%s|%s|%s\n' "$name" "$version" "$description" >> "$MIAOU_DB"
   cp "$work/files" "$(dirname "$MIAOU_DB")/$name.files"
   echo "Paquet installé: $name $version"
-}
+)
 
 miaou_remove() {
   name=$1
