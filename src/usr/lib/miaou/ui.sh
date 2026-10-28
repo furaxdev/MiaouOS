@@ -19,7 +19,7 @@ miaou_ui_button() {
 }
 
 miaou_ui_prompt() {
-  printf '%s' "$1"
+  printf '%b' "$1"
   IFS= read -r MIAOU_UI_REPLY || return 1
 }
 
