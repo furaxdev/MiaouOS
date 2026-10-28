@@ -91,7 +91,7 @@ miaou_remove() {
     echo "Paquet non enregistré: $name" >&2
     return 1
   }
-  target="/opt/miaou/packages/$name"
+  target="$MIAOU_PACKAGE_ROOT/$name"
   rm -rf "$target"
   rm -f "$(dirname "$MIAOU_DB")/$name.files"
   grep -v "^$name|" "$MIAOU_DB" > "$MIAOU_DB.tmp"
