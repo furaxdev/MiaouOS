@@ -23,11 +23,11 @@ jobs:
       - name: Install build and emulator tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3
+          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3 grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools
 
       - name: Check shell syntax and package engine
         run: |
-          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh
+          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh ./scripts/test-iso-qemu.sh
           sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/bin/miaou-cursors ./src/usr/bin/miaou-neko ./src/usr/bin/miaou-settings ./src/usr/bin/miaou-files ./src/usr/bin/miaou-monitor ./src/usr/bin/miaou-network ./src/usr/bin/miaou-run ./src/usr/bin/miaou-apps ./src/usr/lib/miaou/package-engine.sh ./src/usr/lib/miaou/ui.sh ./src/usr/lib/miaou/cursors.sh ./src/usr/lib/miaou/neko.sh
           bash ./scripts/test-miaou-ui.sh
           sudo --preserve-env=MIAOU_DB,MIAOU_CACHE,MIAOU_REPO,MIAOU_PACKAGE_ROOT bash ./scripts/test-package-engine.sh
@@ -38,7 +38,7 @@ jobs:
       - name: Boot in QEMU and capture screen
         run: xvfb-run -a bash ./scripts/test-qemu.sh
 
-      - name: Upload kernel, initramfs, logs and screenshots
+      - name: Boot the generated ISO in QEMU\n        run: bash ./scripts/test-iso-qemu.sh\n\n      - name: Upload kernel, initramfs, logs and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
