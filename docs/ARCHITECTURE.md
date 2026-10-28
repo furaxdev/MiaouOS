@@ -24,4 +24,10 @@ MiaouOS est une distribution indépendante, construite depuis les sources amont.
 
 ## État actuel
 
-Le dépôt possède un pipeline de compilation du noyau Linux et de BusyBox, un initramfs et un prototype de console MiaouDesk. Le bureau graphique, le toolkit MiaouUI, le gestionnaire de paquets, le catalogue de curseurs, Miaou Neko et la compatibilité Windows restent des objectifs futurs.
+- **MiaouCore :** compilation du noyau Linux et de BusyBox, initramfs et lancement de MiaouDesk.
+- **Miaou Package Engine :** prototype shell commun aux deux interfaces. Le format local `.miaou` est une archive tar.gz contenant `manifest` et `payload/`; les fichiers sont installés dans un répertoire isolé sous `/opt/miaou/packages/`.
+- **miaou-get :** commandes de base pour lister, installer une archive locale, supprimer un paquet isolé et rechercher dans un catalogue local.
+- **miaou / Miaou Store :** menu texte initial accessible depuis MiaouDesk.
+- **CI :** compilation et test QEMU, plus tests shell et test du moteur de paquets.
+
+Ce gestionnaire est encore expérimental : il ne dispose pas de dépôt réseau signé, de résolution de dépendances, de mise à jour atomique, ni d'intégration des exécutables installés dans le PATH. N'installez que des archives de confiance. Le bureau graphique, MiaouUI comme bibliothèque dédiée, le catalogue de curseurs, Miaou Neko et la compatibilité Windows restent à construire.
