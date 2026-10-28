@@ -218,6 +218,17 @@ static void draw_window(int i){
 static void present(void) {
   if (fb && drawbuf) memcpy(fb, drawbuf, fb_size);
 }
+static void draw_pointer(void){
+  uint32_t outline=C(18,18,30), fill=theme?C(45,42,65):C(255,244,252), accent=theme?C(190,63,135):C(255,130,207);
+  for(int row=0;row<15;row++){
+    int width=row<9?1+row:10+(row-9)/2;
+    for(int col=0;col<width;col++){
+      pixel(mouse_x+col,mouse_y+row,outline);
+      if(col>0&&col<width-1&&row>0)pixel(mouse_x+col,mouse_y+row,fill);
+    }
+  }
+  for(int k=0;k<5;k++)pixel(mouse_x+3+k,mouse_y+10+k,accent);
+}
 static void draw_desktop(void){
   draw_wallpaper();uint32_t white=C(250,244,255), muted=C(218,211,237), bar=C(25,27,43), pink=C(255,130,207);
   int sc=screen_w<800?1:2;
@@ -235,6 +246,7 @@ static void draw_desktop(void){
   time_t now=time(NULL);struct tm local_now;char clock_text[8]="--:--";if(localtime_r(&now,&local_now))strftime(clock_text,sizeof(clock_text),"%H:%M",&local_now);label((int)screen_w-88,by+bh/2-4,clock_text,white,1);
   label((int)screen_w-150,by+bh/2-4,"NET  VOL",muted,1);
   (void)muted;
+  draw_pointer();
 }
 static void click_desktop(int x,int y){
  int bh=taskbar_h(), by=(int)screen_h-bh;
