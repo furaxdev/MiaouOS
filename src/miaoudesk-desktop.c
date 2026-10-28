@@ -19,6 +19,7 @@
 struct fb_var_screeninfo var;
 struct fb_fix_screeninfo fix;
 static unsigned char *fb;
+static unsigned char *drawbuf;
 static size_t fb_size;
 static int fbfd = -1, ttyfd = -1, mousefd = -1, graphics = 0, raw = 0;
 static struct termios saved_term;
@@ -46,6 +47,7 @@ static void enter_graphics_mode(void) {
 }
 static void launch_console(void) {
     restore_terminal();
+    if (drawbuf) { free(drawbuf); drawbuf = NULL; }
     if (fb && fb != MAP_FAILED) { munmap(fb, fb_size); fb = NULL; }
     if (fbfd >= 0) { close(fbfd); fbfd = -1; }
     if (mousefd >= 0) { close(mousefd); mousefd = -1; }
@@ -55,6 +57,7 @@ static void launch_console(void) {
 }
 static void cleanup(int sig) {
     restore_terminal();
+    if (drawbuf) free(drawbuf);
     if (fb && fb != MAP_FAILED) munmap(fb, fb_size);
     if (fbfd >= 0) close(fbfd);
     if (mousefd >= 0) close(mousefd);
@@ -71,7 +74,7 @@ static uint32_t color(unsigned char r, unsigned char g, unsigned char b) {
 }
 static void pixel(int x, int y, uint32_t c) {
     if (x < 0 || y < 0 || (unsigned)x >= screen_w || (unsigned)y >= screen_h) return;
-    unsigned char *p = fb + (size_t)y * fix.line_length + (size_t)x * (var.bits_per_pixel / 8);
+    unsigned char *p = drawbuf + (size_t)y * fix.line_length + (size_t)x * (var.bits_per_pixel / 8);
     if (var.bits_per_pixel == 16) { uint16_t v = (uint16_t)c; memcpy(p, &v, 2); }
     else if (var.bits_per_pixel == 24) { p[0] = c & 255; p[1] = (c >> 8) & 255; p[2] = (c >> 16) & 255; }
     else if (var.bits_per_pixel == 32) memcpy(p, &c, 4);
@@ -211,6 +214,9 @@ static void draw_window(int i){
   }
   rect(w->x+w->w-15,w->y+w->h-15,13,13,edge);
 }
+static void present(void) {
+  if (fb && drawbuf) memcpy(fb, drawbuf, fb_size);
+}
 static void draw_desktop(void){
   draw_wallpaper();uint32_t white=C(250,244,255), muted=C(218,211,237), bar=C(25,27,43), pink=C(255,130,207);
   int sc=screen_w<800?1:2;
@@ -249,14 +255,15 @@ int main(void){
  if(var.bits_per_pixel!=16&&var.bits_per_pixel!=24&&var.bits_per_pixel!=32){close(fbfd);close(ttyfd);return 1;}
  screen_w=var.xres;screen_h=var.yres;fb_size=fix.smem_len;fb=mmap(NULL,fb_size,PROT_READ|PROT_WRITE,MAP_SHARED,fbfd,0);
  if(fb==MAP_FAILED){fb=NULL;close(fbfd);close(ttyfd);return 1;}
+ drawbuf=malloc(fb_size);if(!drawbuf){munmap(fb,fb_size);close(fbfd);close(ttyfd);return 1;}memcpy(drawbuf,fb,fb_size);
  scale=screen_w<800?1:2;mouse_x=80;mouse_y=100;mousefd=open("/dev/input/mice",O_RDONLY|O_NONBLOCK);
- enter_graphics_mode();draw_desktop();
+ enter_graphics_mode();draw_desktop();present();
  int serial=open("/dev/ttyS0",O_WRONLY|O_CLOEXEC);if(graphics&&serial>=0){const char marker[]="MIAOUDESK_GUI_OK\n";(void)write(serial,marker,sizeof(marker)-1);close(serial);}
  unsigned char packet[3],buf[64];int pn=0, escape_pending=0;
  for(;;){
   struct pollfd fds[2]={{STDIN_FILENO,POLLIN,0},{mousefd,POLLIN,0}};int nf=mousefd>=0?2:1;int pr=poll(fds,nf,100);
   if(pr<0&&errno==EINTR)continue;
-  if(pr>0&&(fds[0].revents&POLLIN)){unsigned char key;if(read(STDIN_FILENO,&key,1)==1){if(escape_pending==1){if(key=='[')escape_pending=2;else if(key=='\t'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?step-1:(active+step)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}escape_pending=0;}else escape_pending=0;}else if(escape_pending==2){if(key=='Z'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?MAX_WINDOWS-step:(active-step+MAX_WINDOWS*2)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}}escape_pending=0;}else if(key==27)escape_pending=1;else if(key=='\t'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?step-1:(active+step)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}}else if(key=='q'||key=='Q')launch_console();else if(key>='1'&&key<='8')app_action(key-'1');draw_desktop();}}
-  if(mousefd>=0&&pr>0&&(fds[1].revents&POLLIN)){ssize_t n=read(mousefd,buf,sizeof(buf));for(ssize_t j=0;j<n;j++){unsigned char v=buf[j];if(pn==0&&!(v&8))continue;packet[pn++]=v;if(pn==3){mouse_x+=(int8_t)packet[1];mouse_y-=(int8_t)packet[2];if(mouse_x<0)mouse_x=0;if(mouse_y<0)mouse_y=0;if(mouse_x>=(int)screen_w)mouse_x=(int)screen_w-1;if(mouse_y>=(int)screen_h)mouse_y=(int)screen_h-1;int left=packet[0]&1;if(left&&!prev_left)click_desktop(mouse_x,mouse_y);if(!left&&prev_left){dragging=-1;resizing=-1;}if(left&&dragging>=0){wins[dragging].x=mouse_x-drag_dx;wins[dragging].y=mouse_y-drag_dy;if(wins[dragging].x<0)wins[dragging].x=0;if(wins[dragging].y<0)wins[dragging].y=0;}if(left&&resizing>=0){struct window *rw=&wins[resizing];rw->w=resize_start_w+mouse_x-resize_start_x;rw->h=resize_start_h+mouse_y-resize_start_y;if(rw->w<220)rw->w=220;if(rw->h<120)rw->h=120;if(rw->x+rw->w>(int)screen_w)rw->w=(int)screen_w-rw->x;if(rw->y+rw->h>(int)screen_h-taskbar_h())rw->h=(int)screen_h-taskbar_h()-rw->y;}prev_left=left;pn=0;draw_desktop();}}}
+  if(pr>0&&(fds[0].revents&POLLIN)){unsigned char key;if(read(STDIN_FILENO,&key,1)==1){if(escape_pending==1){if(key=='[')escape_pending=2;else if(key=='\t'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?step-1:(active+step)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}escape_pending=0;}else escape_pending=0;}else if(escape_pending==2){if(key=='Z'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?MAX_WINDOWS-step:(active-step+MAX_WINDOWS*2)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}}escape_pending=0;}else if(key==27)escape_pending=1;else if(key=='\t'){for(int step=1;step<=MAX_WINDOWS;step++){int k=active<0?step-1:(active+step)%MAX_WINDOWS;if(wins[k].open&&!wins[k].minimized){active=k;break;}}}else if(key=='q'||key=='Q')launch_console();else if(key>='1'&&key<='8')app_action(key-'1');draw_desktop();present();}}
+  if(mousefd>=0&&pr>0&&(fds[1].revents&POLLIN)){ssize_t n=read(mousefd,buf,sizeof(buf));for(ssize_t j=0;j<n;j++){unsigned char v=buf[j];if(pn==0&&!(v&8))continue;packet[pn++]=v;if(pn==3){mouse_x+=(int8_t)packet[1];mouse_y-=(int8_t)packet[2];if(mouse_x<0)mouse_x=0;if(mouse_y<0)mouse_y=0;if(mouse_x>=(int)screen_w)mouse_x=(int)screen_w-1;if(mouse_y>=(int)screen_h)mouse_y=(int)screen_h-1;int left=packet[0]&1;if(left&&!prev_left)click_desktop(mouse_x,mouse_y);if(!left&&prev_left){dragging=-1;resizing=-1;}if(left&&dragging>=0){wins[dragging].x=mouse_x-drag_dx;wins[dragging].y=mouse_y-drag_dy;if(wins[dragging].x<0)wins[dragging].x=0;if(wins[dragging].y<0)wins[dragging].y=0;}if(left&&resizing>=0){struct window *rw=&wins[resizing];rw->w=resize_start_w+mouse_x-resize_start_x;rw->h=resize_start_h+mouse_y-resize_start_y;if(rw->w<220)rw->w=220;if(rw->h<120)rw->h=120;if(rw->x+rw->w>(int)screen_w)rw->w=(int)screen_w-rw->x;if(rw->y+rw->h>(int)screen_h-taskbar_h())rw->h=(int)screen_h-taskbar_h()-rw->y;}prev_left=left;pn=0;if(left||dragging>=0||resizing>=0){draw_desktop();present();}}}}
  }
 }
