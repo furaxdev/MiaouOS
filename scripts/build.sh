@@ -36,7 +36,9 @@ if [[ ! -s "$KERNEL/arch/x86/boot/bzImage" ]]; then
     --enable CONFIG_SERIAL_8250 --enable CONFIG_SERIAL_8250_CONSOLE \
     --enable CONFIG_BINFMT_ELF --enable CONFIG_RD_GZIP \
     --enable CONFIG_DRM --enable CONFIG_DRM_BOCHS --enable CONFIG_DRM_SIMPLEDRM \
-    --enable CONFIG_FB --enable CONFIG_FRAMEBUFFER_CONSOLE
+    --enable CONFIG_FB --enable CONFIG_FRAMEBUFFER_CONSOLE --enable CONFIG_DRM_FBDEV_EMULATION \
+    --enable CONFIG_INPUT --enable CONFIG_INPUT_KEYBOARD --enable CONFIG_INPUT_EVDEV \
+    --enable CONFIG_INPUT_MOUSEDEV --enable CONFIG_MOUSE_PS2 --enable CONFIG_KEYBOARD_ATKBD
   make -C "$KERNEL" olddefconfig
   make -C "$KERNEL" -j"$JOBS" bzImage
 fi
@@ -56,6 +58,7 @@ chmod 1777 "$ROOTFS/tmp"
 make -C "$BB" CONFIG_PREFIX="$ROOTFS" install
 install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
 install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
+gcc -std=c11 -O2 -Wall -Wextra -static "$ROOT/src/miaoudesk-gui.c" -o "$ROOTFS/usr/bin/miaoudesk-gui"
 install -D -m 0755 "$ROOT/src/usr/bin/miaou" "$ROOTFS/usr/bin/miaou"
 install -D -m 0755 "$ROOT/src/usr/bin/miaou-get" "$ROOTFS/usr/bin/miaou-get"
 install -D -m 0644 "$ROOT/src/usr/lib/miaou/package-engine.sh" "$ROOTFS/usr/lib/miaou/package-engine.sh"

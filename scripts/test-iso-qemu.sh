@@ -10,8 +10,8 @@ pid=$!
 cleanup() { kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; }
 trap cleanup EXIT
 for _ in $(seq 1 60); do
-  if grep -q 'MIAOUOS_BOOT_OK' "$LOG" 2>/dev/null; then
-    echo "Bootable ISO passed: MIAOUOS_BOOT_OK"
+  if grep -q 'MIAOUOS_BOOT_OK' "$LOG" 2>/dev/null && grep -q 'MIAOUDESK_GUI_OK' "$LOG" 2>/dev/null; then
+    echo "Bootable ISO and graphical MiaouDesk passed"
     exit 0
   fi
   if ! kill -0 "$pid" 2>/dev/null; then
