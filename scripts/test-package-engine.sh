@@ -20,13 +20,16 @@ tar -czf "$TMP/miaou-demo.miaou" -C "$TMP/pkg" manifest payload
 mkdir -p "$MIAOU_REPO"
 cp "$TMP/pkg/manifest" "$MIAOU_REPO/miaou-demo.manifest"
 miaou_verify "$TMP/miaou-demo.miaou"
-miaou_catalog | grep -q "miaou-demo"
-miaou_search "MiaouOS" | grep -q "miaou-demo"
+miaou_catalog > "$TMP/catalog.out"
+grep -q "miaou-demo" "$TMP/catalog.out"
+miaou_search "MiaouOS" > "$TMP/search.out"
+grep -q "miaou-demo" "$TMP/search.out"
 
 miaou_install "$TMP/miaou-demo.miaou"
 test -f "$MIAOU_PACKAGE_ROOT/miaou-demo/usr/share/miaou-demo/hello.txt"
 grep -q '^miaou-demo|0.1.0|' "$MIAOU_DB"
-miaou_list | grep -q 'miaou-demo'
+miaou_list > "$TMP/list.out"
+grep -q 'miaou-demo' "$TMP/list.out"
 miaou_remove miaou-demo
 test ! -e "$MIAOU_PACKAGE_ROOT/miaou-demo"
 ! grep -q '^miaou-demo|' "$MIAOU_DB"
