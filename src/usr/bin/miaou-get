@@ -2,7 +2,8 @@
 . /usr/lib/miaou/package-engine.sh
 cmd=${1:-help}
 case "$cmd" in
- list) miaou_list ;;\n catalog) miaou_catalog ;;
+ list) miaou_list ;;
+ catalog) miaou_catalog ;;
  search) [ "$#" -ge 2 ] || { echo "Usage: miaou-get search texte" >&2; exit 2; }; shift; miaou_search "$*" ;;
  install) [ "$#" = 2 ] || { echo "Usage: miaou-get install fichier.miaou" >&2; exit 2; }; miaou_install "$2" ;;
  remove|uninstall) [ "$#" = 2 ] || { echo "Usage: miaou-get remove nom" >&2; exit 2; }; miaou_remove "$2" ;;
