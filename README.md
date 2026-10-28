@@ -10,7 +10,19 @@
 - `MiaouDesk`, prototype de bureau textuel personnalisé (console Linux) pour valider le cycle de démarrage et l'identité du système.
 - GitHub Actions : compilation, test de démarrage QEMU, vérification du marqueur de démarrage, capture PNG de l'écran de la VM et publication des artefacts.
 
-Ce premier jalon n'est pas encore un desktop graphique complet : les fenêtres graphiques, la souris, le compositeur Wayland et le gestionnaire de paquets maison seront des étapes ultérieures.
+Ce premier jalon n'est pas encore un desktop graphique complet : les fenêtres graphiques, la souris et le compositeur Wayland restent à construire. Un premier prototype du gestionnaire de paquets est maintenant présent, mais il n'est pas encore adapté à un usage de production.
+
+## Gestion des paquets (prototype)
+
+MiaouDesk propose l'entrée **Miaou Store**. Les interfaces `miaou` (interactive) et `miaou-get` (scriptable) partagent le même moteur :
+
+- `miaou-get help`
+- `miaou-get list`
+- `miaou-get search texte`
+- `miaou-get install paquet.miaou`
+- `miaou-get remove nom`
+
+Le format initial `.miaou` est une archive tar.gz contenant un fichier `manifest` avec `name`, `version`, `description`, et un répertoire `payload/`. Les fichiers sont isolés sous `/opt/miaou/packages/`; ils ne sont pas encore intégrés au PATH. Le dépôt réseau, les signatures, la résolution de dépendances et les mises à jour restent à développer. Utilisez uniquement des archives de confiance.
 
 ## Construire
 
