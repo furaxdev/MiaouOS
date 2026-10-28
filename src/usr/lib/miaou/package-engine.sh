@@ -55,6 +55,7 @@ miaou_install() (
   case "$name" in ''|*[!A-Za-z0-9._+-]*) echo "Nom de paquet invalide." >&2; return 1;; esac
   case "$version" in ''|*[!A-Za-z0-9._+-]*) echo "Version invalide." >&2; return 1;; esac
   [ -n "$description" ] || description="Sans description"
+  case "$description" in *'|'*) echo "Description invalide: le caractère | est réservé." >&2; return 1;; esac
   if awk -F '|' -v n="$name" '$1 == n { found=1 } END { exit !found }' "$MIAOU_DB"; then
     echo "Le paquet $name est déjà enregistré. La mise à jour sera prise en charge dans une prochaine version." >&2
     return 1
@@ -75,7 +76,7 @@ miaou_install() (
     rel=${rel#./}
     [ -n "$rel" ] || continue
     mkdir -p "$target/$(dirname "$rel")"
-    cp "$work/payload/$rel" "$target/$rel" || return 1
+    cp -p "$work/payload/$rel" "$target/$rel" || return 1
   done < "$work/files"
   printf '%s|%s|%s\n' "$name" "$version" "$description" >> "$MIAOU_DB"
   cp "$work/files" "$(dirname "$MIAOU_DB")/$name.files"
@@ -104,7 +105,7 @@ miaou_search() {
   found=0
   for manifest in "$MIAOU_REPO"/*.manifest; do
     [ -f "$manifest" ] || continue
-    if grep -i -q "$query" "$manifest"; then
+    if grep -i -q -e "$query" "$manifest"; then
       sed -n -e 's/^name=/Paquet: /p' -e 's/^version=/Version: /p' -e 's/^description=/Description: /p' "$manifest"
       printf '\n'
       found=1
