@@ -14,6 +14,7 @@
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <termios.h>
+#include <time.h>
 #include <unistd.h>
 
 struct fb_var_screeninfo var;
@@ -138,11 +139,11 @@ static const char *app_names[]={"FICHIERS","NAVIGATEUR","MIAOU STORE","PARAMETRE
 static uint32_t C(unsigned char r,unsigned char g,unsigned char b){return color(r,g,b);}
 static int taskbar_h(void){return screen_h<600?42:52;}
 static void draw_wallpaper(void){
-  uint32_t a=C(20,25,49), b=C(55,29,70), pink=C(244,105,183), violet=C(106,91,194);
+  uint32_t a=theme?C(236,239,249):C(20,25,49), pink=theme?C(190,63,135):C(244,105,183), violet=theme?C(179,184,226):C(106,91,194);
   rect(0,0,screen_w,screen_h,a);
   for(int y=0;y<(int)screen_h-taskbar_h();y++){
     unsigned int t=(unsigned int)y*100/(screen_h?screen_h:1);
-    uint32_t c=C(20+t/4,24+t/5,48+t/2); rect(0,y,screen_w,1,c);
+    uint32_t c=theme?C(238-t/8,240-t/7,250-t/5):C(20+t/4,24+t/5,48+t/2); rect(0,y,screen_w,1,c);
   }
   int cx=(int)screen_w*3/4, cy=(int)screen_h*2/5, r=(int)(screen_h<screen_w?screen_h:screen_w)/5;
   for(int y=-r;y<r;y++)for(int x=-r;x<r;x++)if(x*x+y*y<r*r)pixel(cx+x,cy+y,C(43,37,82));
@@ -224,13 +225,14 @@ static void draw_desktop(void){
   const int ys[]={82,164,246,328,410,492,574,656};
   int count=screen_h<700?6:8;
   for(int i=0;i<count;i++){int yy=ys[i];if(yy>(int)screen_h-taskbar_h()-65)continue;icon(28,yy,i,app_names[i]);}
-  for(int i=0;i<MAX_WINDOWS;i++)draw_window(i);
+  for(int i=0;i<MAX_WINDOWS;i++)if(i!=active)draw_window(i);
+  if(active>=0&&active<MAX_WINDOWS)draw_window(active);
   int bh=taskbar_h(), by=(int)screen_h-bh;rect(0,by,screen_w,bh,bar);rect(0,by,screen_w,2,C(116,91,158));
   rect(10,by+7,38,bh-14,C(93,55,111));label(18,by+bh/2-4,"M",white,2);
   int tx=60;
   for(int i=0;i<MAX_WINDOWS;i++)if(wins[i].open){int ww=100;rect(tx,by+7,ww,bh-14,i==active?C(73,52,88):C(39,42,61));label(tx+7,by+bh/2-4,app_names[wins[i].kind],white,1);tx+=ww+5;}
   if(show_apps){rect(10,by-205,235,195,C(34,31,52));border(10,by-205,235,195,C(150,111,176),2);label(24,by-185,"APPLICATIONS",pink,1);for(int i=0;i<8;i++)label(24,by-160+i*19,app_names[i],white,1);}
-  label((int)screen_w-88,by+bh/2-4,"19:00",white,1);
+  time_t now=time(NULL);struct tm local_now;char clock_text[8]="--:--";if(localtime_r(&now,&local_now))strftime(clock_text,sizeof(clock_text),"%H:%M",&local_now);label((int)screen_w-88,by+bh/2-4,clock_text,white,1);
   label((int)screen_w-150,by+bh/2-4,"NET  VOL",muted,1);
   (void)muted;
 }
@@ -244,7 +246,7 @@ static void click_desktop(int x,int y){
   if(x>=w->x+w->w-17&&x<w->x+w->w&&y>=w->y+w->h-17&&y<w->y+w->h){active=i;resizing=i;resize_start_x=x;resize_start_y=y;resize_start_w=w->w;resize_start_h=w->h;return;}
   if(x>=w->x+w->w-74&&x<w->x+w->w-50&&y>=w->y+4&&y<w->y+28){w->minimized=1;if(active==i)active=-1;return;}
   if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+32){active=i;dragging=i;drag_dx=x-w->x;drag_dy=y-w->y;return;}
-  if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+w->h){active=i;if(w->kind==3&&y>w->y+60&&y<w->y+110)theme=!theme;return;}
+  if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+w->h){active=i;if(w->kind==3&&y>w->y+55&&y<w->y+90)theme=!theme;return;}
  }
  for(int i=0;i<8;i++){int yy=82+i*82;if(x>=28&&x<84&&y>=yy&&y<yy+65){app_action(i);return;}}
 }
