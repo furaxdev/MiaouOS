@@ -33,6 +33,26 @@ static void restore_terminal(void) {
     if (raw) { tcsetattr(STDIN_FILENO, TCSAFLUSH, &saved_term); raw = 0; }
     if (graphics && ttyfd >= 0) { ioctl(ttyfd, KDSETMODE, KD_TEXT); graphics = 0; }
 }
+static void enter_graphics_mode(void) {
+    if (ioctl(ttyfd, KDSETMODE, KD_GRAPHICS) == 0) graphics = 1;
+    if (isatty(STDIN_FILENO) && tcgetattr(STDIN_FILENO, &saved_term) == 0) {
+        struct termios t = saved_term;
+        t.c_lflag &= (tcflag_t) ~(ICANON | ECHO);
+        t.c_iflag &= (tcflag_t) ~(IXON | ICRNL);
+        t.c_cc[VMIN] = 1;
+        t.c_cc[VTIME] = 0;
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &t) == 0) raw = 1;
+    }
+}
+static void launch_console(void) {
+    restore_terminal();
+    if (fb && fb != MAP_FAILED) { munmap(fb, fb_size); fb = NULL; }
+    if (fbfd >= 0) { close(fbfd); fbfd = -1; }
+    if (mousefd >= 0) { close(mousefd); mousefd = -1; }
+    if (ttyfd >= 0) { close(ttyfd); ttyfd = -1; }
+    execl("/bin/miaoudesk", "miaoudesk", (char *)NULL);
+    _exit(127);
+}
 static void cleanup(int sig) {
     restore_terminal();
     if (fb && fb != MAP_FAILED) munmap(fb, fb_size);
