@@ -1,28 +1,58 @@
 # MiaouOS
 
-**MiaouOS** est une distribution Linux indépendante construite depuis les sources, sans base Ubuntu, Debian, Arch ou autre distribution préexistante.
+**MiaouOS — Le Linux des chats !**
 
-## Architecture de MiaouOS 0.1
+MiaouOS est une distribution Linux indépendante construite depuis les sources amont, sans base Ubuntu, Debian, Arch ou autre distribution existante.
 
-- Noyau Linux compilé depuis les sources amont.
-- BusyBox compilé statiquement depuis ses sources pour le système minimal.
-- Notre propre `/init` et notre propre espace utilisateur de démarrage.
-- `MiaouDesk`, prototype de bureau textuel personnalisé (console Linux) pour valider le cycle de démarrage et l'identité du système.
-- GitHub Actions : compilation, test de démarrage QEMU, vérification du marqueur de démarrage, capture PNG de l'écran de la VM et publication des artefacts.
+## Ce qui est présent dans cette branche
 
-Ce premier jalon n'est pas encore un desktop graphique complet : les fenêtres graphiques, la souris, le compositeur Wayland et le gestionnaire de paquets maison seront des étapes ultérieures.
+- Noyau Linux 6.12.30 et BusyBox 1.37.0 compilés depuis les sources.
+- Initramfs et processus `/init` propres à MiaouOS.
+- MiaouDesk, interface console de démarrage.
+- Lanceur console `miaou-apps`.
+- Outils console `miaou-files`, `miaou-monitor`, `miaou-network`.
+- Miaou Store (`miaou`) et interface scriptable `miaou-get), avec moteur partagé et format local `.miaou`.
+- Un paquet d'exemple Miaou Welcome livré dans l'image.
+- MiaouUI : primitives TUI shell.
+- Miaou Cursors : détection et sélection de thèmes installés.
+- Miaou Neko : réglage activé/désactivé et animation console.
+- Lanceur Windows optionnel `miaou-run`, qui utilise Wine uniquement si Wine est installé.
+
+## État réel — à lire avant test
+
+**Cette branche n'est pas encore un OS de bureau complet.** Le bureau est actuellement en console : il n'y a pas encore de compositeur graphique Wayland, de gestionnaire de fenêtres, d'installateur, de dépôt réseau signé, de dépendances du gestionnaire de paquets ou de compatibilité Windows validée. Miaou Neko est une animation console, pas encore un compagnon flottant sur un bureau graphique. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
+
+Les cases de la feuille de route indiquent le code présent, pas nécessairement des tests d'exécution réussis. Le CI doit confirmer la compilation et le démarrage QEMU avant de considérer l'image vérifiée.
+
+## Commandes utiles
+
+- `miaou-apps` : lanceur d'applications console.
+- `miaou-files` : gestionnaire de fichiers console.
+- `miaou-monitor` : aperçu mémoire et processus.
+- `miaou-network` : état des interfaces, routes et test ping.
+- `miaou` : ouvre Miaou Store.
+- `miaou-get help`, `list`, `catalog`, `search TEXTE`, `verify FICHIER.miaou`.
+- `miaou-get install /usr/share/miaou/packages/miaou-welcome.miaou`.
+- `miaou-get remove miaou-welcome`.
+- `miaou-neko on|off|status|play`.
+- `miaou-cursors list`.
+- `miaou-run application.exe` : nécessite Wine installé séparément.
+
+Le format `.miaou` actuel est une archive tar.gz contenant `manifest` et `payload/`. Il n'inclut pas encore de signature cryptographique.
 
 ## Construire
 
-Sur un runner Ubuntu récent ou une machine Linux, installez `build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3` puis lancez :
+Sur Ubuntu récent, installez :
 
 ```sh
-./scripts/build.sh
-./scripts/test-qemu.sh
+sudo apt-get install build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3 grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools
+bash ./scripts/build.sh
+xvfb-run -a bash ./scripts/test-qemu.sh
+bash ./scripts/test-iso-qemu.sh
 ```
 
-Le build télécharge des sources amont épinglées (Linux 6.12.30 et BusyBox 1.37.0), compile un noyau x86_64 et crée un initramfs autonome. Aucun système de fichiers d'une distribution existante n'est utilisé comme rootfs.
+Le script construit un noyau x86_64 et un initramfs autonome. Une ISO amorçable GRUB est générée dans `build/miaouos.iso`; le CI tente aussi de la démarrer dans QEMU. Un installateur sur disque reste à développer.
 
-## CI/CD
+## CI
 
-Le workflow `.github/workflows/miaouos.yml` se lance sur push, pull request et manuellement. Les résultats de compilation, journaux et captures sont publiés comme artefacts. La compilation peut nécessiter des ajustements selon les contraintes des runners GitHub.
+Le workflow `.github/workflows/miaouos.yml` compile, teste les scripts, lance QEMU et publie les artefacts lorsque les jobs passent. Résultats : https://github.com/furaxdev/MiaouOS/actions

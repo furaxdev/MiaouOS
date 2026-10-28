@@ -10,7 +10,7 @@ KERNEL_VERSION=6.12.30
 BUSYBOX_VERSION=1.37.0
 
 need() { command -v "$1" >/dev/null 2>&1 || { printf 'Missing required tool: %s\n' "$1" >&2; exit 1; }; }
-for tool in gcc make wget tar xz cpio gzip; do need "$tool"; done
+for tool in gcc make wget tar xz cpio gzip grub-mkrescue xorriso; do need "$tool"; done
 
 fetch() {
   local url="$1" out="$2"
@@ -44,6 +44,8 @@ fi
 if [[ ! -x "$BB/busybox" ]]; then
   make -C "$BB" defconfig
   sed -i 's/^# CONFIG_STATIC is not set/CONFIG_STATIC=y/' "$BB/.config"
+  sed -i 's/^CONFIG_TC=y/# CONFIG_TC is not set/' "$BB/.config"
+  make -C "$BB" oldconfig </dev/null
   make -C "$BB" -j"$JOBS"
 fi
 
@@ -52,33 +54,54 @@ rm -rf "$ROOTFS"
 mkdir -p "$ROOTFS"/{bin,sbin,etc,proc,sys,dev,dev/pts,tmp,run,usr/bin,usr/sbin,root}
 chmod 1777 "$ROOTFS/tmp"
 make -C "$BB" CONFIG_PREFIX="$ROOTFS" install
-cp "$ROOT/src/init" "$ROOTFS/init"
-cp "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
-chmod +x "$ROOTFS/init" "$ROOTFS/usr/bin/miaoudesk"
+install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
+install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou" "$ROOTFS/usr/bin/miaou"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-get" "$ROOTFS/usr/bin/miaou-get"
+install -D -m 0644 "$ROOT/src/usr/lib/miaou/package-engine.sh" "$ROOTFS/usr/lib/miaou/package-engine.sh"
+install -D -m 0644 "$ROOT/src/usr/lib/miaou/ui.sh" "$ROOTFS/usr/lib/miaou/ui.sh"
+install -D -m 0644 "$ROOT/src/usr/lib/miaou/cursors.sh" "$ROOTFS/usr/lib/miaou/cursors.sh"
+install -D -m 0644 "$ROOT/src/usr/lib/miaou/neko.sh" "$ROOTFS/usr/lib/miaou/neko.sh"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-cursors" "$ROOTFS/usr/bin/miaou-cursors"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-neko" "$ROOTFS/usr/bin/miaou-neko"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-settings" "$ROOTFS/usr/bin/miaou-settings"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-files" "$ROOTFS/usr/bin/miaou-files"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-monitor" "$ROOTFS/usr/bin/miaou-monitor"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-network" "$ROOTFS/usr/bin/miaou-network"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-run" "$ROOTFS/usr/bin/miaou-run"
+install -D -m 0755 "$ROOT/src/usr/bin/miaou-apps" "$ROOTFS/usr/bin/miaou-apps"
+mkdir -p "$ROOTFS/var/lib/miaou/repository" "$ROOTFS/var/cache/miaou" "$ROOTFS/opt/miaou/packages" "$ROOTFS/usr/share/miaou/packages"
+cp "$ROOT/packages/miaou-welcome/manifest" "$ROOTFS/var/lib/miaou/repository/miaou-welcome.manifest"
+mkdir -p "$WORK/miaou-welcome-package"
+cp "$ROOT/packages/miaou-welcome/manifest" "$WORK/miaou-welcome-package/manifest"
+cp -a "$ROOT/packages/miaou-welcome/payload" "$WORK/miaou-welcome-package/payload"
+chmod 0755 "$WORK/miaou-welcome-package/payload/usr/bin/miaou-welcome"
+tar -czf "$ROOTFS/usr/share/miaou/packages/miaou-welcome.miaou" -C "$WORK/miaou-welcome-package" manifest payload
 ln -sf /usr/bin/miaoudesk "$ROOTFS/bin/miaoudesk"
+ln -sf /usr/bin/miaou "$ROOTFS/bin/miaou"
+ln -sf /usr/bin/miaou-get "$ROOTFS/bin/miaou-get"
 cat > "$ROOTFS/etc/issue" <<'ISSUE'
-MiaouOS 0.1 - independent Linux system\n
+MiaouOS 0.1 - Le Linux des chats !
 ISSUE
-cat > "$ROOTFS/init" <<'INIT'
-#!/bin/sh
-export HOME=/root
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-mount -t proc proc /proc 2>/dev/null || true
-mount -t sysfs sysfs /sys 2>/dev/null || true
-mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
-mount -t tmpfs tmpfs /tmp 2>/dev/null || true
-mkdir -p /dev/pts /run
-mount -t devpts devpts /dev/pts 2>/dev/null || true
-printf '\n[MiaouOS] MiaouCore is starting...\n' > /dev/ttyS0 2>/dev/null || true
-printf 'MIAOUOS_BOOT_OK\n' > /dev/ttyS0 2>/dev/null || true
-exec /bin/miaoudesk
-INIT
-chmod +x "$ROOTFS/init"
 
 (
   cd "$ROOTFS"
   find . -print0 | cpio --null -o --format=newc 2>/dev/null | gzip -9
 ) > "$BUILD/miaouos-initramfs.cpio.gz"
 cp "$KERNEL/arch/x86/boot/bzImage" "$BUILD/miaouos-kernel-bzImage"
-sha256sum "$BUILD/miaouos-kernel-bzImage" "$BUILD/miaouos-initramfs.cpio.gz" > "$BUILD/SHA256SUMS"
-printf 'Kernel and initramfs built.\n'
+ISO_ROOT="$WORK/iso-root"
+rm -rf "$ISO_ROOT"
+mkdir -p "$ISO_ROOT/boot/grub"
+cp "$BUILD/miaouos-kernel-bzImage" "$ISO_ROOT/boot/miaouos-kernel-bzImage"
+cp "$BUILD/miaouos-initramfs.cpio.gz" "$ISO_ROOT/boot/miaouos-initramfs.cpio.gz"
+cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'GRUB'
+set timeout=5
+set default=0
+menuentry "MiaouOS — Le Linux des chats !" {
+    linux /boot/miaouos-kernel-bzImage console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5
+    initrd /boot/miaouos-initramfs.cpio.gz
+}
+GRUB
+grub-mkrescue -o "$BUILD/miaouos.iso" "$ISO_ROOT" >/dev/null
+sha256sum "$BUILD/miaouos-kernel-bzImage" "$BUILD/miaouos-initramfs.cpio.gz" "$BUILD/miaouos.iso" > "$BUILD/SHA256SUMS"
+printf 'Kernel, initramfs and bootable BIOS ISO built.\n'

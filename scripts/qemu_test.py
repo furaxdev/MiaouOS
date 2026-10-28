@@ -62,7 +62,15 @@ try:
     stream.write(b'{"execute":"quit"}\n')
     stream.close()
     sock.close()
-    proc.wait(timeout=10)
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=5)
 finally:
     if proc.poll() is None:
         proc.terminate()
@@ -70,6 +78,7 @@ finally:
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:
             proc.kill()
+            proc.wait(timeout=5)
 if not screenshot.exists() or screenshot.stat().st_size < 1000:
     raise RuntimeError('Screenshot missing or unexpectedly small')
 log = serial.read_text(errors='replace') if serial.exists() else ''

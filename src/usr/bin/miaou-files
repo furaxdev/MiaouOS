@@ -1,0 +1,15 @@
+#!/bin/sh
+current=${HOME:-/root}
+while :; do
+ printf '\033[2J\033[H'
+ printf '  Miaou Files — Gestionnaire de fichiers\n  Dossier : %s\n\n' "$current"
+ ls -lah -- "$current" 2>/dev/null | sed -n '1,24p'
+ printf '\n  [1] Ouvrir un dossier  [2] Lire un fichier  [3] Dossier parent  [0] Quitter\n  Choix : '
+ IFS= read -r choice || exit 0
+ case "$choice" in
+  1) printf 'Nom du dossier : '; IFS= read -r name; [ -n "$name" ] && [ -d "$current/$name" ] && current=$(cd "$current/$name" 2>/dev/null && pwd) ;;
+  2) printf 'Nom du fichier : '; IFS= read -r name; if [ -f "$current/$name" ]; then printf '\n'; sed -n '1,160p' "$current/$name"; printf '\nEntrée pour revenir...'; IFS= read -r pause; fi ;;
+  3) current=$(dirname "$current") ;;
+  0) exit 0 ;;
+ esac
+done

@@ -1,0 +1,18 @@
+#!/bin/sh
+while :; do
+ printf '\033[2J\033[H'
+ echo "  Miaou Monitor — État du système"
+ echo
+ printf '  Noyau : '; uname -sr
+ printf '  Temps actif : '; uptime 2>/dev/null || echo "indisponible"
+ echo
+ echo "  Mémoire :"
+ free -h 2>/dev/null || cat /proc/meminfo | head -n 8
+ echo
+ echo "  Processus (aperçu) :"
+ ps 2>/dev/null | head -n 18
+ echo
+ printf 'Entrée pour actualiser, q pour quitter : '
+ IFS= read -r -t 3 key 2>/dev/null || key=''
+ [ "$key" = q ] && exit 0
+done

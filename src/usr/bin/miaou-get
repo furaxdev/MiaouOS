@@ -1,0 +1,13 @@
+#!/bin/sh
+. /usr/lib/miaou/package-engine.sh
+cmd=${1:-help}
+case "$cmd" in
+ list) miaou_list ;;
+ catalog) miaou_catalog ;;
+ search) [ "$#" -ge 2 ] || { echo "Usage: miaou-get search texte" >&2; exit 2; }; shift; miaou_search "$*" ;;
+ install) [ "$#" = 2 ] || { echo "Usage: miaou-get install fichier.miaou" >&2; exit 2; }; miaou_install "$2" ;;
+ remove|uninstall) [ "$#" = 2 ] || { echo "Usage: miaou-get remove nom" >&2; exit 2; }; miaou_remove "$2" ;;
+ verify) [ "$#" = 2 ] || { echo "Usage: miaou-get verify fichier.miaou" >&2; exit 2; }; miaou_verify "$2" ;;
+ help|--help|-h) miaou_help ;;
+ *) echo "Commande inconnue: $cmd" >&2; miaou_help >&2; exit 2 ;;
+esac

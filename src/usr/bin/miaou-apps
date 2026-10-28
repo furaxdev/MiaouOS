@@ -1,0 +1,27 @@
+#!/bin/sh
+while :; do
+ printf '\033[2J\033[H'
+ echo "  MiaouOS — Applications"
+ echo "  1. Gestionnaire de fichiers"
+ echo "  2. Moniteur système"
+ echo "  3. Outils réseau"
+ echo "  4. Miaou Store"
+ echo "  5. Paramètres"
+ echo "  6. Miaou Cursors"
+ echo "  7. Miaou Neko (état)"
+ echo "  8. Lancer Miaou Neko"
+ echo "  0. Retour"
+ printf '\n  Choix : '
+ IFS= read -r c || exit 0
+ case "$c" in
+  1) miaou-files ;;
+  2) miaou-monitor ;;
+  3) miaou-network ;;
+  4) miaou ;;
+  5) miaou-settings ;;
+  6) miaou-cursors list; printf '\nEntrée...'; IFS= read -r _ ;;
+  7) miaou-neko status; printf '\nEntrée...'; IFS= read -r _ ;;
+  8) miaou-neko play ;;
+  0) exit 0 ;;
+ esac
+done

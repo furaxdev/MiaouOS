@@ -1,0 +1,15 @@
+#!/bin/sh
+if [ "$#" -lt 1 ]; then
+ echo "Usage: miaou-run fichier.exe [arguments...]" >&2
+ exit 2
+fi
+app=$1
+case "$app" in *.exe|*.EXE) ;; *) echo "Le fichier doit avoir l'extension .exe." >&2; exit 2;; esac
+if ! command -v wine >/dev/null 2>&1; then
+ echo "Wine n'est pas installé dans cette image MiaouOS." >&2
+ echo "Aucune application Windows n'a été lancée."
+ exit 127
+fi
+[ -f "$app" ] || { echo "Fichier introuvable: $app" >&2; exit 1; }
+shift
+exec wine "$app" "$@"

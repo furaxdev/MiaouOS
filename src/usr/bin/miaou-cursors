@@ -1,0 +1,8 @@
+#!/bin/sh
+. /usr/lib/miaou/cursors.sh
+case "${1:-list}" in
+ list) miaou_cursors_list ;;
+ preview) [ "$#" = 2 ] || exit 2; miaou_cursors_preview "$2" ;;
+ set) [ "$#" = 2 ] || exit 2; miaou_cursors_set "$2" ;;
+ *) echo "Usage: miaou-cursors list|preview THEME|set THEME" >&2; exit 2 ;;
+esac

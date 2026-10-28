@@ -1,0 +1,50 @@
+#!/bin/sh
+. /usr/lib/miaou/package-engine.sh
+. /usr/lib/miaou/ui.sh
+while :; do
+  miaou_ui_clear
+  miaou_ui_menu 'Miaou Store — Le catalogue des chats !' \
+    'Paquets installés' \
+    'Parcourir le catalogue local' \
+    'Rechercher un paquet' \
+    'Installer un fichier .miaou' \
+    'Installer Miaou Welcome (exemple)' \
+    'Aide de miaou-get'
+  choice=$MIAOU_UI_CHOICE
+  case "$choice" in
+    1)
+      miaou_ui_clear
+      miaou_list
+      miaou_ui_notice 'Fin de la liste.'
+      ;;
+    2)
+      miaou_ui_clear
+      miaou_catalog
+      miaou_ui_notice 'Fin du catalogue.'
+      ;;
+    3)
+      miaou_ui_prompt '\n  Recherche : ' || exit 0
+      query=$MIAOU_UI_REPLY
+      [ -n "$query" ] && miaou_search "$query"
+      miaou_ui_notice 'Fin de la recherche.'
+      ;;
+    4)
+      miaou_ui_prompt '\n  Chemin du fichier .miaou : ' || exit 0
+      archive=$MIAOU_UI_REPLY
+      [ -n "$archive" ] && miaou_install "$archive"
+      miaou_ui_notice 'Fin de l’installation.'
+      ;;
+    5)
+      miaou_ui_clear
+      miaou_install /usr/share/miaou/packages/miaou-welcome.miaou
+      miaou_ui_notice 'Fin de l’installation.'
+      ;;
+    6)
+      miaou_ui_clear
+      miaou_help
+      miaou_ui_notice 'Fin de l’aide.'
+      ;;
+    0) exit 0 ;;
+    *) miaou_ui_notice 'Choix invalide.' ;;
+  esac
+done

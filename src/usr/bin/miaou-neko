@@ -1,0 +1,31 @@
+#!/bin/sh
+. /usr/lib/miaou/neko.sh
+case "${1:-status}" in
+ status) miaou_neko_status ;;
+ on|enable|true) miaou_neko_set on ;;
+ off|disable|false) miaou_neko_set off ;;
+ play)
+  if ! grep -q '^enabled=true$' "$MIAOU_NEKO_CONFIG" 2>/dev/null; then
+   echo "Miaou Neko est désactivé. Lancez miaou-neko on pour l'activer."
+   exit 1
+  fi
+  trap 'printf "\033[?25h\033[0m\n"; exit 0' INT TERM HUP
+  printf '\033[?25l'
+  frame=0
+  while :; do
+   printf '\033[2J\033[H'
+   printf '  Miaou Neko — compagnon console (Ctrl+C pour quitter)\n\n'
+   case $((frame % 4)) in
+    0) cat=' /\_/\\\n( o.o )\n > ^ <';;
+    1) cat=' /\_/\\\n( -.- ) z\n > ^ <';;
+    2) cat=' /\_/\\\n( o.o )\n < ^ >';;
+    3) cat=' /\_/\\\n( ^.^ )\n > ^ <';;
+   esac
+   printf '%b\n' "$cat"
+   printf '\n  Miaou !\n'
+   frame=$((frame + 1))
+   sleep 1
+  done
+  ;;
+ *) echo "Usage: miaou-neko on|off|status|play" >&2; exit 2 ;;
+esac
