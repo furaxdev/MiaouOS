@@ -1,19 +1,23 @@
 # MiaouDesk graphique
 
-## Implémenté dans cette branche
-- Lanceur plein écran dessiné directement sur le framebuffer Linux, sans bibliothèque graphique externe.
-- Cartes pour Applications, Store, Fichiers, Paramètres, Réseau, Neko, Terminal et retour console.
-- Contrôle au clavier (touches 1–8, Q pour revenir à la console) et clic gauche via `/dev/input/mice` si ce périphérique existe.
-- Les outils console s'exécutent en mode texte; le framebuffer est ensuite restauré.
-- Si aucun `/dev/fb0` n'est disponible, `/init` revient au menu console.
+## Bureau graphique en cours
 
-## Limites actuelles
-Ce lanceur n'est pas un bureau Wayland : il n'a pas de fenêtres multiples, de compositeur, de dock permanent, de notifications, de gestion de sessions, de tactile testé ni de support lecteurs d'écran. Le contrôle souris dépend du périphérique PS/2 `/dev/input/mice`; d'autres dispositifs peuvent nécessiter une prise en charge evdev plus complète.
+Cette branche remplace le lanceur plein écran par un bureau dessiné sur le framebuffer Linux, sans dépendance graphique externe.
 
-## Architecture à compléter
-- Session Wayland avec un compositeur maintenu.
-- Fenêtres, panneau, dock, lanceur, notifications et paramètres graphiques.
-- MiaouUI partagé entre TUI et composants graphiques.
-- Miaou Neko en sprite animé dans la session, désactivable.
-- Thèmes de curseurs avec aperçus réels.
-- Accessibilité, tactile et tests matériels.
+- Fond d'écran sombre à motif félin et icônes de bureau.
+- Barre des tâches avec lanceur d'applications, fenêtres ouvertes et indicateurs.
+- Fenêtres déplaçables par leur barre de titre, superposables, minimisables, maximisables et fermables.
+- Fenêtres distinctes pour Fichiers, Navigateur, Miaou Store, Paramètres, Terminal, Réseau, Neko et À propos.
+- Lanceur d'applications dans la barre des tâches, navigation souris PS/2 et raccourcis clavier 1–8.
+- Le test de démarrage conserve le marqueur série `MIAOUDESK_GUI_OK`.
+
+## Limites honnêtes
+
+C'est une première couche de bureau et de gestion de fenêtres, pas encore un environnement de bureau Linux complet. Les fenêtres Fichiers, Navigateur, Store, Terminal et Réseau affichent actuellement des interfaces de démonstration : elles ne remplacent pas encore des applications pleinement fonctionnelles. Il n'y a pas encore de navigateur Web intégré, de vrai terminal graphique, de compositeur Wayland, de support tactile validé ni de service d'horloge/réseau. Le rendu dépend du framebuffer et le contrôle souris utilise `/dev/input/mice`.
+
+## Suite prévue
+
+- Relier les fenêtres aux véritables outils MiaouOS et au gestionnaire de paquets.
+- Ajouter un vrai terminal interactif, une navigation de fichiers avec actions et un navigateur basé sur un moteur existant.
+- Améliorer les thèmes, le dock, le curseur, les raccourcis et l'accessibilité.
+- Ajouter la gestion evdev et tester le tactile dans QEMU et sur du matériel réel.
