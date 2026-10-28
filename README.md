@@ -45,12 +45,13 @@ Le format `.miaou` actuel est une archive tar.gz contenant `manifest` et `payloa
 Sur Ubuntu récent, installez :
 
 ```sh
-sudo apt-get install build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3
+sudo apt-get install build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3 grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools
 bash ./scripts/build.sh
 xvfb-run -a bash ./scripts/test-qemu.sh
+bash ./scripts/test-iso-qemu.sh
 ```
 
-Le script construit un noyau x86_64 et un initramfs autonome. L'ISO amorçable et l'installateur restent à développer.
+Le script construit un noyau x86_64 et un initramfs autonome. Une ISO amorçable GRUB est générée dans `build/miaouos.iso`; le CI tente aussi de la démarrer dans QEMU. Un installateur sur disque reste à développer.
 
 ## CI
 
