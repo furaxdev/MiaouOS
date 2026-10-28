@@ -8,6 +8,7 @@ while :; do
     'Parcourir le catalogue local' \
     'Rechercher un paquet' \
     'Installer un fichier .miaou' \
+    'Installer Miaou Welcome (exemple)' \
     'Aide de miaou-get'
   choice=$MIAOU_UI_CHOICE
   case "$choice" in
@@ -34,6 +35,11 @@ while :; do
       miaou_ui_notice 'Fin de l’installation.'
       ;;
     5)
+      miaou_ui_clear
+      miaou_install /usr/share/miaou/packages/miaou-welcome.miaou
+      miaou_ui_notice 'Fin de l’installation.'
+      ;;
+    6)
       miaou_ui_clear
       miaou_help
       miaou_ui_notice 'Fin de l’aide.'
