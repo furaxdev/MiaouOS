@@ -5,7 +5,8 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 ## Noyau et démarrage
 - [x] Compilation du noyau et BusyBox en CI.
 - [x] Initramfs et lancement de MiaouDesk en console.
-- [x] Builds CI et tests de démarrage QEMU validés pour les commits précédents.\n- [ ] Tests QEMU entièrement verts et reproductibles pour chaque nouvelle version.
+- [x] Tests QEMU avec captures PNG réelles et interactions souris/clavier (CI).
+- [ ] Tests QEMU entièrement verts et reproductibles pour chaque nouvelle version.
 - [ ] Comptes utilisateurs, permissions, journaux, réseau et arrêt propre.
 - [ ] Détection matérielle et installation sur de vraies machines.
 
@@ -21,9 +22,14 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 - [ ] Toolkit graphique partagé et catalogue en ligne.
 
 ## MiaouDesk graphique
-- [ ] Serveur graphique/compositeur et sessions.\n- [x] Gestionnaire de fenêtres framebuffer : déplacement, redimensionnement, minimisation, maximisation et fermeture.\n- [x] Alt+Tab, curseur, thèmes clair/sombre et horloge.
-- [ ] Panneau, dock, lanceur, notifications et paramètres.
-- [ ] Gestionnaire de fichiers, terminal, éditeur, navigateur et accessibilité tactile.\n- [ ] Bluetooth avec pile logicielle et pilotes noyau.\n- [ ] Multi-écran via DRM/KMS.
+- [x] Gestionnaire de fenêtres framebuffer : déplacement, redimensionnement 8 bords, aimantation, minimisation, maximisation, fermeture, Alt+Tab.
+- [x] Panneau, dock, menu avec recherche, menu contextuel, notifications, thèmes clair/sombre, accent, échelle automatique.
+- [x] Entrées : clavier AZERTY/QWERTY (codes bruts), souris/tablette/tactile via evdev.
+- [x] Terminal (pty), Fichiers, Navigateur texte, Boutique (miaou-get), Moniteur, Réseau (DHCP), Paramètres.
+- [ ] Serveur graphique/compositeur et sessions.
+- [ ] Navigateur avec moteur web (CSS, JavaScript, images), HTTPS vérifié.
+- [ ] Presse-papiers, glisser-déposer, accessibilité, son.
+- [ ] Bluetooth, Wi-Fi, multi-écran via DRM/KMS, changement de résolution à chaud.
 
 ## Miaou Cursors
 - [x] Détection et sélection de thèmes de curseurs existants.

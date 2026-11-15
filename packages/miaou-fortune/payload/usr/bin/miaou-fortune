@@ -1,0 +1,12 @@
+#!/bin/sh
+# Prints a random cat proverb.
+set -- \
+ "Un chat qui dort ne perd jamais son temps." \
+ "Qui court après deux souris n'attrape que des miettes... et un coussin." \
+ "La curiosité est un vilain défaut, sauf pour les chats." \
+ "Un bon bureau est un bureau avec une fenêtre ensoleillée." \
+ "Quand le chat n'est pas là, les fenêtres se réorganisent." \
+ "Neuf vies, mille onglets."
+n=$(( $(date +%s) % $# + 1 ))
+eval "msg=\${$n}"
+printf ' /\\_/\\\n( o.o )  %s\n > ^ <\n' "$msg"

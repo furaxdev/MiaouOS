@@ -1,0 +1,406 @@
+/* MiaouDesk graphics: framebuffer, anti-aliased shapes, TrueType text, PNG/JPEG images. */
+#define _GNU_SOURCE
+#include <fcntl.h>
+#include <linux/fb.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include "desk.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_NO_STDIO
+#define STBI_ONLY_PNG
+#define STBI_ONLY_JPEG
+#define STBI_NO_LINEAR
+#define STBI_NO_HDR
+#include "third_party/stb_image.h"
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "third_party/stb_truetype.h"
+
+int SW, SH, UIP = 100;
+static int fbfd = -1;
+static unsigned char *fbmem;
+static size_t fbsize;
+static struct fb_var_screeninfo var;
+static struct fb_fix_screeninfo fix;
+static u32 *scene;
+static int cx0, cy0, cx1, cy1;
+
+int ui_auto_scale(int w) { return w < 1100 ? 100 : w < 1500 ? 115 : w < 1900 ? 130 : w < 2500 ? 160 : 200; }
+
+int gfx_open(void) {
+    fbfd = open("/dev/fb0", O_RDWR);
+    if (fbfd < 0) return 1;
+    if (ioctl(fbfd, FBIOGET_FSCREENINFO, &fix) < 0 || ioctl(fbfd, FBIOGET_VSCREENINFO, &var) < 0) return 2;
+    if (var.bits_per_pixel != 16 && var.bits_per_pixel != 24 && var.bits_per_pixel != 32) return 3;
+    fbsize = fix.smem_len;
+    fbmem = mmap(NULL, fbsize, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
+    if (fbmem == MAP_FAILED) { fbmem = NULL; return 4; }
+    SW = (int)var.xres; SH = (int)var.yres;
+    scene = calloc((size_t)SW * SH, 4);
+    if (!scene) return 5;
+    gfx_unclip();
+    UIP = ui_auto_scale(SW);
+    return 0;
+}
+
+void gfx_close(void) {
+    if (fbmem) munmap(fbmem, fbsize);
+    if (fbfd >= 0) close(fbfd);
+    fbmem = NULL; fbfd = -1;
+}
+
+void gfx_clip(int x, int y, int w, int h) {
+    cx0 = x < 0 ? 0 : x; cy0 = y < 0 ? 0 : y;
+    cx1 = x + w > SW ? SW : x + w; cy1 = y + h > SH ? SH : y + h;
+}
+void gfx_unclip(void) { cx0 = 0; cy0 = 0; cx1 = SW; cy1 = SH; }
+
+static inline u32 mixa(u32 d, u32 s, int a) {   /* a: 0..255 */
+    if (a >= 255) return s;
+    if (a <= 0) return d;
+    int ia = 255 - a;
+    u32 r = (((d >> 16) & 255) * ia + ((s >> 16) & 255) * a + 127) / 255;
+    u32 g = (((d >> 8) & 255) * ia + ((s >> 8) & 255) * a + 127) / 255;
+    u32 b = ((d & 255) * ia + (s & 255) * a + 127) / 255;
+    return (r << 16) | (g << 8) | b;
+}
+u32 gfx_mix(u32 a, u32 b, int t) { return mixa(a, b, t); }
+
+static inline void put(int x, int y, u32 c, int a) {
+    if (x < cx0 || y < cy0 || x >= cx1 || y >= cy1) return;
+    u32 *p = &scene[(size_t)y * SW + x];
+    *p = mixa(*p, c, a);
+}
+
+void gfx_fill(int x, int y, int w, int h, u32 c, int a) {
+    int x0 = x < cx0 ? cx0 : x, y0 = y < cy0 ? cy0 : y;
+    int x1 = x + w > cx1 ? cx1 : x + w, y1 = y + h > cy1 ? cy1 : y + h;
+    if (x1 <= x0 || y1 <= y0 || a <= 0) return;
+    for (int yy = y0; yy < y1; yy++) {
+        u32 *p = &scene[(size_t)yy * SW + x0];
+        if (a >= 255) for (int xx = x0; xx < x1; xx++) *p++ = c;
+        else for (int xx = x0; xx < x1; xx++, p++) *p = mixa(*p, c, a);
+    }
+}
+void gfx_hline(int x, int y, int w, u32 c, int a) { gfx_fill(x, y, w, 1, c, a); }
+void gfx_vline(int x, int y, int h, u32 c, int a) { gfx_fill(x, y, 1, h, c, a); }
+
+/* coverage (0..255) of pixel centre (px,py) relative to corner circle centre, radius r */
+static inline int cover(float dx, float dy, float r) {
+    float d = sqrtf(dx * dx + dy * dy);
+    float v = r - d + 0.5f;
+    if (v <= 0) return 0;
+    if (v >= 1) return 255;
+    return (int)(v * 255);
+}
+
+void gfx_rrect(int x, int y, int w, int h, int r, u32 c, int a) {
+    if (w <= 0 || h <= 0) return;
+    if (r > w / 2) r = w / 2;
+    if (r > h / 2) r = h / 2;
+    if (r <= 0) { gfx_fill(x, y, w, h, c, a); return; }
+    gfx_fill(x, y + r, w, h - 2 * r, c, a);
+    for (int row = 0; row < r; row++) {
+        /* top row y+row and bottom row y+h-1-row */
+        int span0 = 0;
+        for (int col = 0; col < r; col++) {
+            float dx = (float)(r - col) - 0.5f, dy = (float)(r - row) - 0.5f;
+            int cv = cover(dx, dy, (float)r);
+            int aa = cv * a / 255;
+            if (aa <= 0) { span0 = col + 1; continue; }
+            if (cv >= 255) break;
+            put(x + col, y + row, c, aa); put(x + w - 1 - col, y + row, c, aa);
+            put(x + col, y + h - 1 - row, c, aa); put(x + w - 1 - col, y + h - 1 - row, c, aa);
+            span0 = col + 1;
+        }
+        int inner = span0;
+        /* fully covered middle part of the row */
+        int fx = x + inner;
+        gfx_fill(fx, y + row, w - 2 * inner, 1, c, a);
+        gfx_fill(fx, y + h - 1 - row, w - 2 * inner, 1, c, a);
+    }
+}
+
+void gfx_rrect_line(int x, int y, int w, int h, int r, u32 c, int a) {
+    /* 1px outline: draw outer rrect then the inner one in a way that only the ring remains via per-pixel coverage */
+    if (r > w / 2) r = w / 2;
+    if (r > h / 2) r = h / 2;
+    gfx_fill(x + r, y, w - 2 * r, 1, c, a); gfx_fill(x + r, y + h - 1, w - 2 * r, 1, c, a);
+    gfx_fill(x, y + r, 1, h - 2 * r, c, a); gfx_fill(x + w - 1, y + r, 1, h - 2 * r, c, a);
+    for (int row = 0; row < r; row++)
+        for (int col = 0; col < r; col++) {
+            float dx = (float)(r - col) - 0.5f, dy = (float)(r - row) - 0.5f;
+            float d = sqrtf(dx * dx + dy * dy);
+            float v = 1.0f - fabsf(d - (float)r + 0.5f);
+            if (v <= 0) continue;
+            int aa = (int)(v * a);
+            put(x + col, y + row, c, aa); put(x + w - 1 - col, y + row, c, aa);
+            put(x + col, y + h - 1 - row, c, aa); put(x + w - 1 - col, y + h - 1 - row, c, aa);
+        }
+}
+
+void gfx_circle(int cx, int cy, int r, u32 c, int a) {
+    for (int y = -r - 1; y <= r; y++)
+        for (int x = -r - 1; x <= r; x++) {
+            int cv = cover((float)x + 0.5f, (float)y + 0.5f, (float)r);
+            if (cv) put(cx + x, cy + y, c, cv * a / 255);
+        }
+}
+
+void gfx_shadow(int x, int y, int w, int h, int r, int spread, int maxa) {
+    int x0 = x - spread, y0 = y - spread, x1 = x + w + spread, y1 = y + h + spread;
+    for (int yy = y0; yy < y1; yy++) {
+        if (yy < cy0 || yy >= cy1) continue;
+        int mid = yy >= y + r && yy < y + h - r;
+        for (int xx = x0; xx < x1; xx++) {
+            if (mid && xx >= x && xx < x + w) { xx = x + w - 1; continue; }
+            if (xx < cx0 || xx >= cx1) continue;
+            float qx = fabsf((float)xx + 0.5f - (x + w / 2.0f)) - (w / 2.0f - r);
+            float qy = fabsf((float)yy + 0.5f - (y + h / 2.0f)) - (h / 2.0f - r);
+            float ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
+            float m = qx > qy ? qx : qy;
+            float d = sqrtf(ox * ox + oy * oy) + (m < 0 ? m : 0) - (float)r;
+            if (d <= 0 || d >= spread) continue;
+            float t = 1.0f - d / (float)spread;
+            put(xx, yy, 0x000000, (int)(maxa * t * t));
+        }
+    }
+}
+
+void gfx_blit(const u32 *src, int sw, int sh, int dx, int dy) {
+    for (int y = 0; y < sh; y++) {
+        int yy = dy + y; if (yy < cy0 || yy >= cy1) continue;
+        for (int x = 0; x < sw; x++) { int xx = dx + x; if (xx < cx0 || xx >= cx1) continue; scene[(size_t)yy * SW + xx] = src[(size_t)y * sw + x]; }
+    }
+}
+
+/* ------------------------------------------------------------------ presentation */
+static inline u32 packpx(u32 rgb) {
+    unsigned r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
+    u32 v = 0;
+    if (var.red.length) v |= ((r >> (8 - var.red.length)) << var.red.offset);
+    if (var.green.length) v |= ((g >> (8 - var.green.length)) << var.green.offset);
+    if (var.blue.length) v |= ((b >> (8 - var.blue.length)) << var.blue.offset);
+    return v;
+}
+void gfx_present_rect(int x, int y, int w, int h) {
+    if (!fbmem) return;
+    int x0 = x < 0 ? 0 : x, y0 = y < 0 ? 0 : y, x1 = x + w > SW ? SW : x + w, y1 = y + h > SH ? SH : y + h;
+    if (x1 <= x0 || y1 <= y0) return;
+    int bpp = (int)var.bits_per_pixel / 8;
+    int fast = bpp == 4 && var.red.offset == 16 && var.green.offset == 8 && var.blue.offset == 0 && var.red.length == 8;
+    for (int yy = y0; yy < y1; yy++) {
+        unsigned char *row = fbmem + (size_t)yy * fix.line_length;
+        const u32 *s = &scene[(size_t)yy * SW];
+        if (fast) { memcpy(row + (size_t)x0 * 4, s + x0, (size_t)(x1 - x0) * 4); continue; }
+        for (int xx = x0; xx < x1; xx++) {
+            u32 v = packpx(s[xx]);
+            memcpy(row + (size_t)xx * bpp, &v, (size_t)bpp);
+        }
+    }
+}
+void gfx_fb_pixel(int x, int y, u32 rgb) {
+    if (!fbmem || x < 0 || y < 0 || x >= SW || y >= SH) return;
+    int bpp = (int)var.bits_per_pixel / 8;
+    u32 v = packpx(rgb);
+    memcpy(fbmem + (size_t)y * fix.line_length + (size_t)x * bpp, &v, (size_t)bpp);
+}
+void gfx_present(void) { gfx_present_rect(0, 0, SW, SH); }
+
+/* ------------------------------------------------------------------ text */
+struct Glyph { int cp, px; unsigned char *bm; int w, h, xo, yo, adv; };
+struct Font { stbtt_fontinfo info; unsigned char *data; struct Glyph *cache; int ncache; };
+
+Font *font_load(const char *path) {
+    size_t n = 0;
+    unsigned char *d = (unsigned char *)read_file(path, &n, 8 * 1024 * 1024);
+    if (!d) return NULL;
+    Font *f = calloc(1, sizeof *f);
+    f->data = d;
+    if (!stbtt_InitFont(&f->info, d, stbtt_GetFontOffsetForIndex(d, 0))) { free(d); free(f); return NULL; }
+    f->ncache = 4096;
+    f->cache = calloc((size_t)f->ncache, sizeof(struct Glyph));
+    return f;
+}
+
+static struct Glyph *glyph(Font *f, int cp, int px) {
+    unsigned h = ((unsigned)cp * 2654435761u + (unsigned)px * 97u) % (unsigned)f->ncache;
+    for (int probe = 0; probe < 32; probe++) {
+        struct Glyph *g = &f->cache[(h + (unsigned)probe) % (unsigned)f->ncache];
+        if (g->px == px && g->cp == cp + 1) return g;
+        if (g->px == 0) {
+            float sc = stbtt_ScaleForPixelHeight(&f->info, (float)px);
+            int adv, lsb, x0, y0, x1, y1;
+            stbtt_GetCodepointHMetrics(&f->info, cp, &adv, &lsb);
+            stbtt_GetCodepointBitmapBox(&f->info, cp, sc, sc, &x0, &y0, &x1, &y1);
+            g->cp = cp + 1; g->px = px; g->adv = (int)(adv * sc + 0.5f);
+            g->w = x1 - x0; g->h = y1 - y0; g->xo = x0; g->yo = y0;
+            g->bm = NULL;
+            if (g->w > 0 && g->h > 0) {
+                g->bm = malloc((size_t)g->w * g->h);
+                stbtt_MakeCodepointBitmap(&f->info, g->bm, g->w, g->h, g->w, sc, sc, cp);
+            }
+            return g;
+        }
+    }
+    return &f->cache[0];
+}
+
+int utf8_next(const char **sp) {
+    const unsigned char *s = (const unsigned char *)*sp;
+    int c = *s;
+    if (!c) return 0;
+    int n = 1;
+    if (c < 0x80) { *sp += 1; return c; }
+    if ((c & 0xe0) == 0xc0) { c &= 0x1f; n = 2; }
+    else if ((c & 0xf0) == 0xe0) { c &= 0x0f; n = 3; }
+    else if ((c & 0xf8) == 0xf0) { c &= 0x07; n = 4; }
+    else { *sp += 1; return '?'; }
+    for (int i = 1; i < n; i++) {
+        if ((s[i] & 0xc0) != 0x80) { *sp += i; return '?'; }
+        c = (c << 6) | (s[i] & 0x3f);
+    }
+    *sp += n;
+    return c;
+}
+int utf8_put(char *o, int cp) {
+    if (cp < 0x80) { o[0] = (char)cp; return 1; }
+    if (cp < 0x800) { o[0] = (char)(0xc0 | (cp >> 6)); o[1] = (char)(0x80 | (cp & 63)); return 2; }
+    if (cp < 0x10000) { o[0] = (char)(0xe0 | (cp >> 12)); o[1] = (char)(0x80 | ((cp >> 6) & 63)); o[2] = (char)(0x80 | (cp & 63)); return 3; }
+    o[0] = (char)(0xf0 | (cp >> 18)); o[1] = (char)(0x80 | ((cp >> 12) & 63)); o[2] = (char)(0x80 | ((cp >> 6) & 63)); o[3] = (char)(0x80 | (cp & 63));
+    return 4;
+}
+
+int glyph_draw(Font *f, int x, int y, int cp, u32 c, int px) {
+    struct Glyph *g = glyph(f, cp, px);
+    if (g->bm) {
+        int base = y + (int)(px * 0.80f);       /* baseline position inside the line box */
+        for (int j = 0; j < g->h; j++) {
+            int yy = base + g->yo + j;
+            if (yy < cy0 || yy >= cy1) continue;
+            for (int i = 0; i < g->w; i++) {
+                int a = g->bm[j * g->w + i];
+                if (a) put(x + g->xo + i, yy, c, a);
+            }
+        }
+    }
+    return g->adv;
+}
+
+int text_w(Font *f, const char *s, int px) {
+    int w = 0;
+    while (*s) { int cp = utf8_next(&s); w += glyph(f, cp, px)->adv; }
+    return w;
+}
+int text_draw(Font *f, int x, int y, const char *s, u32 c, int px) {
+    int x0 = x;
+    while (*s) { int cp = utf8_next(&s); x += glyph_draw(f, x, y, cp, c, px); }
+    return x - x0;
+}
+int text_draw_clip(Font *f, int x, int y, const char *s, u32 c, int px, int maxw) {
+    int sx = cx0, sy = cy0, ex = cx1, ey = cy1;
+    int nx = x < cx0 ? cx0 : x, nex = x + maxw < cx1 ? x + maxw : cx1;
+    cx0 = nx; cx1 = nex;
+    int r = text_draw(f, x, y, s, c, px);
+    cx0 = sx; cy0 = sy; cx1 = ex; cy1 = ey;
+    return r;
+}
+int font_line_h(Font *f, int px) { (void)f; return (int)(px * 1.3f); }
+int font_cell_w(Font *f, int px) { return glyph(f, 'M', px)->adv; }
+
+/* ------------------------------------------------------------------ images */
+static const char *ASSET_DIR = "/usr/share/miaou";
+
+Img *img_load_file(const char *path) {
+    size_t n = 0;
+    unsigned char *d = (unsigned char *)read_file(path, &n, 16 * 1024 * 1024);
+    if (!d) return NULL;
+    int w, h, ch;
+    unsigned char *px = stbi_load_from_memory(d, (int)n, &w, &h, &ch, 4);
+    free(d);
+    if (!px) return NULL;
+    Img *im = malloc(sizeof *im);
+    im->w = w; im->h = h; im->px = malloc((size_t)w * h * 4);
+    for (int i = 0; i < w * h; i++) {
+        unsigned r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2], a = px[i * 4 + 3];
+        im->px[i] = (a << 24) | (r << 16) | (g << 8) | b;
+    }
+    stbi_image_free(px);
+    return im;
+}
+void img_free(Img *im) { if (im) { free(im->px); free(im); } }
+
+Img *img_scale(Img *src, int w, int h) {
+    Img *o = malloc(sizeof *o);
+    o->w = w; o->h = h; o->px = malloc((size_t)w * h * 4);
+    for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++) {
+            /* area-ish sampling: average the source pixels covered (box filter) */
+            int sx0 = x * src->w / w, sx1 = (x + 1) * src->w / w; if (sx1 <= sx0) sx1 = sx0 + 1;
+            int sy0 = y * src->h / h, sy1 = (y + 1) * src->h / h; if (sy1 <= sy0) sy1 = sy0 + 1;
+            unsigned long a = 0, r = 0, g = 0, b = 0, n = 0;
+            for (int yy = sy0; yy < sy1 && yy < src->h; yy++)
+                for (int xx = sx0; xx < sx1 && xx < src->w; xx++) {
+                    u32 p = src->px[(size_t)yy * src->w + xx];
+                    unsigned pa = p >> 24;
+                    a += pa; r += ((p >> 16) & 255) * pa; g += ((p >> 8) & 255) * pa; b += (p & 255) * pa; n++;
+                }
+            if (!n || !a) { o->px[(size_t)y * w + x] = 0; continue; }
+            o->px[(size_t)y * w + x] = ((u32)(a / n) << 24) | ((u32)(r / a) << 16) | ((u32)(g / a) << 8) | (u32)(b / a);
+        }
+    return o;
+}
+
+void img_draw(Img *im, int x, int y, int a) {
+    if (!im) return;
+    for (int j = 0; j < im->h; j++) {
+        int yy = y + j; if (yy < cy0 || yy >= cy1) continue;
+        for (int i = 0; i < im->w; i++) {
+            u32 p = im->px[(size_t)j * im->w + i];
+            int pa = (int)(p >> 24) * a / 255;
+            if (pa) put(x + i, yy, p & 0xffffff, pa);
+        }
+    }
+}
+
+#define ICON_CACHE 96
+static struct { char name[24]; int size; Img *im; } icache[ICON_CACHE];
+Img *img_get(const char *name, int size) {
+    for (int i = 0; i < ICON_CACHE; i++)
+        if (icache[i].im && icache[i].size == size && !strcmp(icache[i].name, name)) return icache[i].im;
+    char path[160];
+    snprintf(path, sizeof path, "%s/icons/%s.png", ASSET_DIR, name);
+    Img *src = img_load_file(path);
+    if (!src) return NULL;
+    Img *sc = img_scale(src, size, size);
+    img_free(src);
+    for (int i = 0; i < ICON_CACHE; i++)
+        if (!icache[i].im) { snprintf(icache[i].name, sizeof icache[i].name, "%s", name); icache[i].size = size; icache[i].im = sc; break; }
+    return sc;
+}
+
+static Img *wall[2];
+Img *wallpaper(int night) {
+    int k = night ? 1 : 0;
+    if (wall[k] && wall[k]->w == SW && wall[k]->h == SH) return wall[k];
+    img_free(wall[k]); wall[k] = NULL;
+    char path[160];
+    snprintf(path, sizeof path, "%s/wallpapers/%s.jpg", ASSET_DIR, night ? "night" : "day");
+    Img *src = img_load_file(path);
+    if (!src) return NULL;
+    /* cover: crop the source to the screen aspect, then scale */
+    int cw = src->w, ch = src->h;
+    if ((long)cw * SH > (long)ch * SW) cw = (int)((long)ch * SW / SH); else ch = (int)((long)cw * SH / SW);
+    Img crop = { cw, ch, malloc((size_t)cw * ch * 4) };
+    int ox = (src->w - cw) / 2, oy = (src->h - ch) / 2;
+    for (int y = 0; y < ch; y++) memcpy(&crop.px[(size_t)y * cw], &src->px[(size_t)(y + oy) * src->w + ox], (size_t)cw * 4);
+    img_free(src);
+    wall[k] = img_scale(&crop, SW, SH);
+    free(crop.px);
+    return wall[k];
+}

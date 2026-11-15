@@ -1,33 +1,39 @@
-# MiaouDesk graphique
+# MiaouDesk — le bureau des chats
 
-## Fonctions présentes dans cette branche
+MiaouDesk est un bureau écrit en C, dessiné directement sur le framebuffer Linux (`/dev/fb0`), sans serveur X ni Wayland.
+Rendu anti-aliasé (polices Nunito et JetBrains Mono via `stb_truetype`, icônes Twemoji, fonds d'écran jour/nuit générés par `tools/gen-wallpaper.py`).
+Code : `src/desk/` — `gfx.c` (dessin), `desk.c` (fenêtres, panneau, dock, menu, entrées), `app_*.c` (applications).
 
-MiaouDesk est un bureau framebuffer léger, dessiné directement par MiaouOS sans serveur graphique externe.
+## Ce qui fonctionne (vérifié dans QEMU par `scripts/qemu_test.py`)
 
-- Fond d'écran félin et thèmes sombre/clair.
-- Icônes de bureau adaptées aux résolutions compactes.
-- Barre des tâches avec fenêtres ouvertes et lanceur d'applications.
-- Fenêtres déplaçables, redimensionnables depuis leur poignée, superposables, minimisables, maximisables et fermables.
-- Bascule de fenêtre avec Alt+Tab et navigation inverse avec Alt+Maj+Tab lorsque le terminal transmet la séquence.
-- Curseur de souris dessiné, navigation souris PS/2 et raccourcis clavier 1–8.
-- Horloge locale affichée dans la barre des tâches.
-- Repli vers la console MiaouOS avec Q.
-- Le test de démarrage conserve le marqueur série `MIAOUDESK_GUI_OK`.
+**Bureau**
+- Fenêtres : déplacer, redimensionner par les 8 bords, réduire, agrandir (double-clic sur la barre de titre), fermer, pile Z avec focus.
+- Aimantation : glisser une fenêtre au bord gauche/droit (moitié d'écran) ou en haut (plein écran) ; Super+←/→/↑/↓.
+- Panneau supérieur (menu MiaouOS, fenêtre active, horloge/date, réseau réel, disposition clavier, thème, alimentation), dock avec indicateurs d'applications ouvertes, menu des applications avec recherche, menu contextuel (clic droit), notifications.
+- Raccourcis : Super = menu, Alt+Tab (Maj = inverse), Alt+F4, Ctrl+Alt+T, Super+T/E/B/D.
+- Thèmes Nuit féline / Jour pastel, 4 couleurs d'accent, échelle d'interface automatique selon la taille d'écran (100–200 %).
+- Clavier via codes bruts (`K_MEDIUMRAW`) : dispositions AZERTY (par défaut) et QWERTY, modifiables à chaud ; AltGr pris en charge.
+- Pointeur : evdev (souris, tablettes absolues type `virtio-tablet`, écrans tactiles à un doigt) avec repli sur `/dev/input/mice`.
+- Miaou Neko : un chat qui suit le curseur et fait la sieste (désactivable dans les Paramètres).
+- Diagnostic : un crash du bureau écrit `MIAOUDESK_CRASH` + une trace sur la console série.
 
-## Limites actuelles
+**Applications réelles**
+- **Terminal** : vrai pseudo-terminal (`/bin/sh` BusyBox), émulation ANSI/VT100 (couleurs, curseur, effacement), historique de défilement, UTF-8.
+- **Fichiers** : navigation, aperçu texte et images (PNG/JPEG), création de dossier/fichier, renommage, suppression.
+- **Navigateur (texte)** : pages `http`/`https` via BusyBox `wget` (asynchrone), `file://`, liens cliquables, historique, recherche. Pas de JavaScript, de CSS ni d'images ; HTTPS **sans vérification de certificat** (limite de BusyBox).
+- **Boutique** : catalogue local, installation / désinstallation / lancement de paquets `.miaou` avec `miaou-get` (sortie en direct).
+- **Moniteur système** : CPU, mémoire, charge, liste des processus triable, envoi de SIGTERM/SIGKILL.
+- **Réseau** : interfaces, IP, MAC, trafic, passerelle, DNS ; DHCP, test de connexion et DNS.
+- **Paramètres** : thème, accent, échelle, clavier, Neko, informations système (réglages sauvegardés dans `/etc/miaou/desktop.conf`).
 
-C'est une première couche de bureau, pas encore un environnement de bureau Linux complet.
+## Limites connues
+- La résolution est fixée au démarrage par le pilote (`video=Virtual-1:1024x768` sur QEMU). Le changement à chaud via `FBIOPUT_VSCREENINFO` n'est **pas** pris en charge par le pilote `bochs-drm` : MiaouOS ne le simule pas.
+- Un seul écran ; pas de multi-écran ni d'accélération GPU. Rendu logiciel.
+- Pas de presse-papiers, de glisser-déposer, de son, de Bluetooth ni de Wi-Fi.
+- Seul le réseau filaire DHCP IPv4 est testé (QEMU `user`). Le matériel réel n'a pas été testé.
+- Le navigateur n'est pas un moteur web complet.
+- `/etc/miaou/desktop.conf` vit dans l'initramfs (RAM) : les réglages ne survivent pas à un redémarrage tant qu'il n'y a pas de stockage persistant.
 
-- Le rendu utilise un seul framebuffer `/dev/fb0` : le multi-écran n'est pas encore pris en charge.
-- La souris utilise `/dev/input/mice`; evdev et les écrans tactiles ne sont pas encore validés.
-- Les fenêtres Fichiers, Navigateur, Store, Terminal et Réseau restent en partie des interfaces de démonstration.
-- Il n'y a pas encore de navigateur Web intégré, de terminal graphique interactif, de compositeur Wayland ni de service Bluetooth.
-- Le Bluetooth nécessitera l'activation des pilotes noyau adaptés, la gestion des périphériques HCI et l'intégration d'une pile telle que BlueZ avec ses dépendances.
-
-## Prochaines étapes
-
-1. Relier les fenêtres aux véritables outils MiaouOS.
-2. Construire un terminal graphique interactif et un gestionnaire de fichiers avec actions.
-3. Ajouter une couche d'entrées evdev et tester le tactile.
-4. Étudier une architecture DRM/KMS multi-écran avant d'annoncer le support de plusieurs moniteurs.
-5. Ajouter une pile Bluetooth complète plutôt qu'une interface factice.
+## Tests
+`scripts/test-qemu.sh` démarre le noyau + initramfs dans QEMU, pilote le bureau par QMP (clics via `virtio-tablet`, frappes clavier réelles), prend des captures **PNG réelles** (`screendump`) et vérifie les marqueurs série (`MIAOUDESK_APP_OPEN …`). Aucune image n'est dessinée par le script.
+`scripts/test-iso-qemu.sh` fait de même avec l'ISO BIOS/GRUB.

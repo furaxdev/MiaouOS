@@ -1,0 +1,3 @@
+name=miaou-sysinfo
+version=0.1.0
+description=Résumé du système (noyau, mémoire, temps de fonctionnement)

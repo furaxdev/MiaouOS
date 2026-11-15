@@ -11,11 +11,23 @@ mount -t devpts devpts /dev/pts 2>/dev/null || true
 printf '\n[MiaouOS] MiaouCore is starting...\n' > /dev/ttyS0 2>/dev/null || true
 printf 'MIAOUOS_BOOT_OK\n' > /dev/ttyS0 2>/dev/null || true
 
+# Networking: loopback + DHCP on the first real interface (in the background, never blocks the desktop)
+ip link set lo up 2>/dev/null || true
+for n in /sys/class/net/*; do
+  i=${n##*/}
+  [ "$i" = lo ] && continue
+  ip link set "$i" up 2>/dev/null || true
+  ( udhcpc -b -q -t 6 -T 2 -i "$i" -s /usr/share/udhcpc/default.script >/dev/null 2>&1 & )
+  printf 'MIAOUOS_NET_DHCP %s\n' "$i" > /dev/ttyS0 2>/dev/null || true
+  break
+done
+
 if [ -c /dev/tty0 ]; then
   exec </dev/tty0 >/dev/tty0 2>&1
 fi
 
 if [ -c /dev/fb0 ] && [ -x /usr/bin/miaoudesk-gui ]; then
   /usr/bin/miaoudesk-gui
+  printf 'MIAOUDESK_GUI_EXIT %s\n' "$?" > /dev/ttyS0 2>/dev/null || true
 fi
 exec /bin/miaoudesk

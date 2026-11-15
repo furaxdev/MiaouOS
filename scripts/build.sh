@@ -37,7 +37,7 @@ if [[ ! -s "$KERNEL/arch/x86/boot/bzImage" ]]; then
     --enable CONFIG_BINFMT_ELF --enable CONFIG_RD_GZIP \
     --enable CONFIG_DRM --enable CONFIG_DRM_BOCHS --enable CONFIG_DRM_SIMPLEDRM \
     --enable CONFIG_FB --enable CONFIG_FRAMEBUFFER_CONSOLE --enable CONFIG_DRM_FBDEV_EMULATION \
-    --enable CONFIG_INPUT --enable CONFIG_INPUT_KEYBOARD --enable CONFIG_INPUT_EVDEV \
+    --enable CONFIG_INPUT --enable CONFIG_INPUT_KEYBOARD --enable CONFIG_INPUT_EVDEV --enable CONFIG_VIRTIO_INPUT --enable CONFIG_INPUT_TABLET --enable CONFIG_E1000 --enable CONFIG_VIRTIO_NET --enable CONFIG_INET --enable CONFIG_INPUT_EVDEV \
     --enable CONFIG_INPUT_MOUSEDEV --enable CONFIG_MOUSE_PS2 --enable CONFIG_KEYBOARD_ATKBD
   make -C "$KERNEL" olddefconfig
   make -C "$KERNEL" -j"$JOBS" bzImage
@@ -56,36 +56,8 @@ rm -rf "$ROOTFS"
 mkdir -p "$ROOTFS"/{bin,sbin,etc,proc,sys,dev,dev/pts,tmp,run,usr/bin,usr/sbin,root}
 chmod 1777 "$ROOTFS/tmp"
 make -C "$BB" CONFIG_PREFIX="$ROOTFS" install
-install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
-install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
-gcc -std=c11 -O2 -Wall -Wextra -static "$ROOT/src/miaoudesk-desktop.c" -o "$ROOTFS/usr/bin/miaoudesk-gui"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou" "$ROOTFS/usr/bin/miaou"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-get" "$ROOTFS/usr/bin/miaou-get"
-install -D -m 0644 "$ROOT/src/usr/lib/miaou/package-engine.sh" "$ROOTFS/usr/lib/miaou/package-engine.sh"
-install -D -m 0644 "$ROOT/src/usr/lib/miaou/ui.sh" "$ROOTFS/usr/lib/miaou/ui.sh"
-install -D -m 0644 "$ROOT/src/usr/lib/miaou/cursors.sh" "$ROOTFS/usr/lib/miaou/cursors.sh"
-install -D -m 0644 "$ROOT/src/usr/lib/miaou/neko.sh" "$ROOTFS/usr/lib/miaou/neko.sh"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-cursors" "$ROOTFS/usr/bin/miaou-cursors"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-neko" "$ROOTFS/usr/bin/miaou-neko"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-settings" "$ROOTFS/usr/bin/miaou-settings"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-files" "$ROOTFS/usr/bin/miaou-files"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-monitor" "$ROOTFS/usr/bin/miaou-monitor"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-network" "$ROOTFS/usr/bin/miaou-network"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-run" "$ROOTFS/usr/bin/miaou-run"
-install -D -m 0755 "$ROOT/src/usr/bin/miaou-apps" "$ROOTFS/usr/bin/miaou-apps"
-mkdir -p "$ROOTFS/var/lib/miaou/repository" "$ROOTFS/var/cache/miaou" "$ROOTFS/opt/miaou/packages" "$ROOTFS/usr/share/miaou/packages"
-cp "$ROOT/packages/miaou-welcome/manifest" "$ROOTFS/var/lib/miaou/repository/miaou-welcome.manifest"
-mkdir -p "$WORK/miaou-welcome-package"
-cp "$ROOT/packages/miaou-welcome/manifest" "$WORK/miaou-welcome-package/manifest"
-cp -a "$ROOT/packages/miaou-welcome/payload" "$WORK/miaou-welcome-package/payload"
-chmod 0755 "$WORK/miaou-welcome-package/payload/usr/bin/miaou-welcome"
-tar -czf "$ROOTFS/usr/share/miaou/packages/miaou-welcome.miaou" -C "$WORK/miaou-welcome-package" manifest payload
-ln -sf /usr/bin/miaoudesk "$ROOTFS/bin/miaoudesk"
-ln -sf /usr/bin/miaou "$ROOTFS/bin/miaou"
-ln -sf /usr/bin/miaou-get "$ROOTFS/bin/miaou-get"
-cat > "$ROOTFS/etc/issue" <<'ISSUE'
-MiaouOS 0.1 - Le Linux des chats !
-ISSUE
+# MiaouOS userland: desktop (C), assets, scripts, packages and configuration
+bash "$ROOT/scripts/install-miaou.sh" "$ROOTFS" "$WORK"
 
 (
   cd "$ROOTFS"
@@ -101,7 +73,7 @@ cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'GRUB'
 set timeout=5
 set default=0
 menuentry "MiaouOS — Le Linux des chats !" {
-    linux /boot/miaouos-kernel-bzImage console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5
+    linux /boot/miaouos-kernel-bzImage console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 miaou.kbd=fr
     initrd /boot/miaouos-initramfs.cpio.gz
 }
 GRUB

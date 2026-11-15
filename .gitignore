@@ -2,3 +2,4 @@ build/*
 !build/.gitkeep
 *.o
 *.ko
+__pycache__/
