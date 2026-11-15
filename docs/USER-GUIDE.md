@@ -1,7 +1,14 @@
 # Guide utilisateur MiaouOS (prototype)
 
 ## Démarrage
-Le prototype actuel démarre en console. MiaouDesk affiche un menu de commandes; ce n'est pas encore un bureau graphique.
+MiaouOS démarre directement sur **MiaouDesk**, le bureau graphique (si le noyau fournit un framebuffer ; sinon, repli sur la console).
+
+- **Super** (touche Windows) : menu des applications, avec recherche. Clic droit sur le bureau : menu contextuel.
+- **Alt+Tab** : changer de fenêtre · **Alt+F4** : fermer · **Ctrl+Alt+T** : terminal · **Super+←/→/↑/↓** : aimanter, agrandir, réduire.
+- Le clavier est en AZERTY par défaut ; basculez QWERTY/AZERTY depuis le panneau (clic sur « FR ») ou les Paramètres.
+- Pour revenir à la console : menu → *Console*.
+
+Voir `docs/GRAPHICAL-DESKTOP.md` pour la liste complète et les limites.
 
 ## Paquets
 - `miaou-get help` : aide.
@@ -19,7 +26,7 @@ Les exécutables installés ne sont pas ajoutés au PATH. Les dépôts réseau e
 - `miaou-neko on`
 - `miaou-neko off`
 
-Cette version stocke le réglage, mais ne lance pas encore de compagnon animé.
+Dans MiaouDesk, Neko est un petit chat qui suit le curseur (réglage dans Paramètres → Miaou Neko). `miaou-neko play` reste l'animation console.
 
 ## Curseurs
 - `miaou-cursors list`

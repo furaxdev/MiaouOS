@@ -10,7 +10,7 @@ MiaouOS est une distribution indépendante, construite depuis les sources amont.
 2. **MiaouUI** — toolkit TUI indépendant des applications, d'abord clavier, puis souris quand le terminal le permet.
 3. **Miaou Package Engine** — moteur unique de résolution, téléchargement, vérification et installation.
 4. **Interfaces de paquets** — miaou pour l'usage interactif ; miaou-get pour scripts et automatisation ; Miaou Store comme interface TUI.
-5. **MiaouDesk** — futur environnement graphique avec panneau, lanceur, paramètres et gestionnaire de sessions.
+5. **MiaouDesk** — bureau graphique framebuffer en C (`src/desk/`) : gestionnaire de fenêtres, panneau, dock, applications (Terminal, Fichiers, Navigateur texte, Boutique, Moniteur, Réseau, Paramètres). Détails : `docs/GRAPHICAL-DESKTOP.md`.
 6. **Personnalisation** — Miaou Cursors, thèmes et Miaou Neko, activable dans les paramètres.
 7. **Compatibilité** — intégration éventuelle de technologies existantes comme Wine après validation ; ReactOS est un projet de système compatible Windows, pas un simple composant à greffer dans le système.
 
@@ -24,10 +24,10 @@ MiaouOS est une distribution indépendante, construite depuis les sources amont.
 
 ## État actuel
 
-- **MiaouCore :** compilation du noyau Linux et de BusyBox, initramfs et lancement de MiaouDesk.
+- **MiaouCore :** compilation du noyau Linux et de BusyBox, initramfs, DHCP au démarrage et lancement de MiaouDesk (`scripts/install-miaou.sh` installe le userland).
 - **MiaouUI :** premières primitives shell réutilisables (titres, menus clavier, saisie, notices et barres de progression), utilisées par Miaou Store. La navigation souris et les widgets avancés restent à faire.\n- **Miaou Package Engine :** prototype shell commun aux deux interfaces. Le format local `.miaou` est une archive tar.gz contenant `manifest` et `payload/`; les fichiers sont installés dans un répertoire isolé sous `/opt/miaou/packages/`.
 - **miaou-get :** commandes de base pour lister, installer une archive locale, supprimer un paquet isolé et rechercher dans un catalogue local.
 - **miaou / Miaou Store :** menu texte initial accessible depuis MiaouDesk.
-- **CI :** compilation et test QEMU, plus tests shell et test du moteur de paquets.
+- **CI :** compilation, test QEMU piloté par QMP avec captures PNG réelles (souris et clavier), démarrage de l'ISO, tests shell et test du moteur de paquets.
 
-Ce gestionnaire est encore expérimental : il ne dispose pas de dépôt réseau signé, de résolution de dépendances, de mise à jour atomique, ni d'intégration des exécutables installés dans le PATH. N'installez que des archives de confiance. Le bureau graphique, MiaouUI comme bibliothèque dédiée, le catalogue de curseurs, Miaou Neko et la compatibilité Windows restent à construire.
+Ce gestionnaire est encore expérimental : il ne dispose pas de dépôt réseau signé, de résolution de dépendances, de mise à jour atomique, ni d'intégration des exécutables installés dans le PATH. N'installez que des archives de confiance. MiaouUI comme bibliothèque dédiée, le catalogue de curseurs, un navigateur avec moteur web et la compatibilité Windows restent à construire.

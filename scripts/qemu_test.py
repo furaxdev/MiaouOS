@@ -120,6 +120,15 @@ def click(x=None, y=None, button='left'):
     qmp('input-send-event', events=[{'type': 'btn', 'data': {'button': button, 'down': True}}]); time.sleep(0.12)
     qmp('input-send-event', events=[{'type': 'btn', 'data': {'button': button, 'down': False}}]); time.sleep(0.5)
 
+def press(down):
+    qmp('input-send-event', events=[{'type': 'btn', 'data': {'button': 'left', 'down': down}}]); time.sleep(0.1)
+def drag(x0, y0, x1, y1):
+    goto(x0, y0); press(True)
+    for i in range(1, 7): goto(x0 + (x1 - x0) * i // 6, y0 + (y1 - y0) * i // 6)
+    press(False); time.sleep(0.4)
+def dblclick(x, y):
+    goto(x, y); press(True); press(False); time.sleep(0.08); press(True); press(False); time.sleep(0.6)
+
 # ---------------------------------------------------------------- boot
 t0 = time.time(); geom = None
 while time.time() - t0 < (240 if args.iso else 120):
@@ -161,6 +170,22 @@ elif not args.quick:
     if not opened('terminal'): fail('terminal did not open from the dock')
     typ('uname -a\n'); time.sleep(0.8); typ('ls /\n'); time.sleep(0.8); typ('ping -c 2 10.0.2.2\n'); time.sleep(4); typ('cat /etc/os-release\n'); time.sleep(1.0)
     shot('03-terminal')
+    # --- window management with the real pointer: drag, resize from the corner, snap, minimise/restore, maximise
+    th = S(38); tw_ = min(S(820), W - S(20)); tw_h = min(S(520), H - PH - (DOCK_ICON + S(22)) - S(14) - S(10))
+    ah = H - PH - (DOCK_ICON + S(22)) - S(14)
+    wx, wy = (W - tw_) // 2 - S(40), PH + (ah - tw_h) // 2 - S(20)
+    drag(wx + tw_ // 2, wy + th // 2, wx + tw_ // 2 - S(120), wy + th // 2 + S(50))          # move
+    wx -= S(120); wy += S(50)
+    drag(wx + tw_ - 2, wy + tw_h - 2, wx + tw_ + S(60), wy + tw_h + S(30))                    # resize (bottom-right)
+    tw_ += S(62); tw_h += S(32)
+    shot('03b-window-moved-resized')
+    key('meta_l', 'left'); time.sleep(0.8); shot('03c-snapped-left')
+    click(S(22) + S(24), PH + th // 2); time.sleep(0.6)                                        # yellow button: minimise
+    shot('03d-minimised')
+    click(*dock_xy(0)); time.sleep(0.8)                                                        # dock icon restores it
+    dblclick(W // 4, PH + th // 2)                                                             # snapped window: double-click restores it
+    dblclick(W // 4, wy + th // 2); time.sleep(0.6); shot('03e-maximised-by-doubleclick')      # floating window: double-click maximises
+    dblclick(W // 4, PH + th // 2); time.sleep(0.6)                                            # maximised: double-click restores
     # --- Files (Super+E), maximised (Super+Up)
     key('meta_l', 'e'); time.sleep(1.5); key('meta_l', 'up'); time.sleep(0.8)
     if not opened('files'): fail('files did not open (Super+E)')
