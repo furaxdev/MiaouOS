@@ -5,7 +5,7 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 ## Noyau et démarrage
 - [x] Compilation du noyau et BusyBox en CI.
 - [x] Initramfs et lancement de MiaouDesk en console.
-- [ ] Tests QEMU entièrement verts et reproductibles.
+- [x] Builds CI et tests de démarrage QEMU validés pour les commits précédents.\n- [ ] Tests QEMU entièrement verts et reproductibles pour chaque nouvelle version.
 - [ ] Comptes utilisateurs, permissions, journaux, réseau et arrêt propre.
 - [ ] Détection matérielle et installation sur de vraies machines.
 
@@ -21,9 +21,9 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 - [ ] Toolkit graphique partagé et catalogue en ligne.
 
 ## MiaouDesk graphique
-- [ ] Serveur graphique/compositeur, sessions et fenêtres.
+- [ ] Serveur graphique/compositeur et sessions.\n- [x] Gestionnaire de fenêtres framebuffer : déplacement, redimensionnement, minimisation, maximisation et fermeture.\n- [x] Alt+Tab, curseur, thèmes clair/sombre et horloge.
 - [ ] Panneau, dock, lanceur, notifications et paramètres.
-- [ ] Gestionnaire de fichiers, terminal, éditeur, navigateur et accessibilité tactile.
+- [ ] Gestionnaire de fichiers, terminal, éditeur, navigateur et accessibilité tactile.\n- [ ] Bluetooth avec pile logicielle et pilotes noyau.\n- [ ] Multi-écran via DRM/KMS.
 
 ## Miaou Cursors
 - [x] Détection et sélection de thèmes de curseurs existants.
