@@ -20,9 +20,9 @@ MiaouOS est une distribution Linux indépendante construite depuis les sources a
 
 ## État réel — à lire avant test
 
-**Cette branche n'est pas encore un OS de bureau complet.** Le bureau graphique actuel est un lanceur framebuffer à plein écran, pas encore une session Wayland ni un gestionnaire de fenêtres avec fenêtres redimensionnables. L'installateur, le dépôt réseau signé, les dépendances du gestionnaire de paquets et la compatibilité Windows validée restent à faire. Miaou Neko est une animation console, pas encore un compagnon flottant sur un bureau graphique. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
+**Cette branche n'est pas encore un OS de bureau complet.** MiaouDesk fournit un bureau framebuffer et un gestionnaire de fenêtres léger, mais pas encore une session Wayland ni un compositeur moderne. L'installateur, le dépôt réseau signé, les dépendances du gestionnaire de paquets et la compatibilité Windows validée restent à faire. Miaou Neko est encore une animation console, pas un compagnon flottant intégré au bureau. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
 
-Les cases de la feuille de route indiquent le code présent, pas nécessairement des tests d'exécution réussis. Le CI doit confirmer la compilation et le démarrage QEMU avant de considérer l'image vérifiée.
+Le Bluetooth, la gestion multi-écran, le tactile et les applications graphiques complètes ne sont pas encore implémentés. Les cases de la feuille de route indiquent le code présent, pas nécessairement des tests d'exécution réussis. Le CI doit confirmer la compilation et le démarrage QEMU avant de considérer l'image vérifiée.
 
 ## Commandes utiles
 
