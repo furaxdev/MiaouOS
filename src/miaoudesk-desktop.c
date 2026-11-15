@@ -233,9 +233,12 @@ static void draw_desktop(void){
   draw_wallpaper();uint32_t white=C(250,244,255), muted=C(218,211,237), bar=C(25,27,43), pink=C(255,130,207);
   int sc=screen_w<800?1:2;
   label(28,20,"MIAOUOS",pink,sc+1);label(28,42,"LE LINUX DES CHATS",white,1);
-  const int ys[]={82,164,246,328,410,492,574,656};
-  int count=screen_h<700?6:8;
-  for(int i=0;i<count;i++){int yy=ys[i];if(yy>(int)screen_h-taskbar_h()-65)continue;icon(28,yy,i,app_names[i]);}
+  for(int i=0;i<8;i++){
+    int ix,iy;
+    if(screen_h<700||screen_w<900){ix=28+(i/4)*92;iy=82+(i%4)*88;}
+    else{ix=28;iy=82+i*82;}
+    if(iy+65<(int)screen_h-taskbar_h())icon(ix,iy,i,app_names[i]);
+  }
   for(int i=0;i<MAX_WINDOWS;i++)if(i!=active)draw_window(i);
   if(active>=0&&active<MAX_WINDOWS)draw_window(active);
   int bh=taskbar_h(), by=(int)screen_h-bh;rect(0,by,screen_w,bh,bar);rect(0,by,screen_w,2,C(116,91,158));
@@ -260,7 +263,12 @@ static void click_desktop(int x,int y){
   if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+32){active=i;dragging=i;drag_dx=x-w->x;drag_dy=y-w->y;return;}
   if(x>=w->x&&x<w->x+w->w&&y>=w->y&&y<w->y+w->h){active=i;if(w->kind==3&&y>w->y+55&&y<w->y+90)theme=!theme;return;}
  }
- for(int i=0;i<8;i++){int yy=82+i*82;if(x>=28&&x<84&&y>=yy&&y<yy+65){app_action(i);return;}}
+ for(int i=0;i<8;i++){
+  int ix,iy;
+  if(screen_h<700||screen_w<900){ix=28+(i/4)*92;iy=82+(i%4)*88;}
+  else{ix=28;iy=82+i*82;}
+  if(iy+65<(int)screen_h-taskbar_h()&&x>=ix&&x<ix+56&&y>=iy&&y<iy+65){app_action(i);return;}
+ }
 }
 int main(void){
  signal(SIGINT,cleanup);signal(SIGTERM,cleanup);signal(SIGHUP,cleanup);
