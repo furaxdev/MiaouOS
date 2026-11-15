@@ -3,7 +3,7 @@
 ## Démarrage
 MiaouOS démarre directement sur **MiaouDesk**, le bureau graphique (si le noyau fournit un framebuffer ; sinon, repli sur la console).
 
-- **Super** (touche Windows) : menu des applications, avec recherche. Clic droit sur le bureau : menu contextuel.
+- **Super** (touche Windows) ou le logo en bas à gauche : lanceur d'applications, avec recherche. Clic droit sur le bureau : menu contextuel.
 - **Alt+Tab** : changer de fenêtre · **Alt+F4** : fermer · **Ctrl+Alt+T** : terminal · **Super+←/→/↑/↓** : aimanter, agrandir, réduire.
 - Le clavier est en AZERTY par défaut ; basculez QWERTY/AZERTY depuis le panneau (clic sur « FR ») ou les Paramètres.
 - Pour revenir à la console : menu → *Console*.
@@ -26,7 +26,7 @@ Les exécutables installés ne sont pas ajoutés au PATH. Les dépôts réseau e
 - `miaou-neko on`
 - `miaou-neko off`
 
-Dans MiaouDesk, Neko est un petit chat qui suit le curseur (réglage dans Paramètres → Miaou Neko). `miaou-neko play` reste l'animation console.
+Le compagnon animé n'existe pas dans MiaouDesk ; `miaou-neko play` reste l'animation console.
 
 ## Curseurs
 - `miaou-cursors list`

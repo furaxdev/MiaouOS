@@ -13,7 +13,7 @@ extern int UIP;          /* ui scale in percent (100, 125, 150, 200) */
 #define S(n) ((int)(((n) * UIP + 50) / 100))
 
 typedef struct Font Font;
-typedef struct Img { int w, h; u32 *px; /* ARGB straight alpha */ } Img;
+typedef struct Img { int w, h; u32 *px; /* ARGB straight alpha */ int mono; /* white mask tinted at draw time */ } Img;
 
 int  gfx_open(void);                       /* open fb, allocate buffers; 0 = ok */
 void gfx_close(void);
@@ -46,7 +46,11 @@ int   utf8_put(char *out, int cp);         /* encode, returns length */
 Img  *img_get(const char *name, int size);      /* assets/icons/name.png scaled to size x size */
 Img  *img_load_file(const char *path);
 Img  *img_scale(Img *src, int w, int h);
-void  img_draw(Img *im, int x, int y, int a);
+void  img_draw(Img *im, int x, int y, int a);              /* mono icons use the theme text colour */
+void  img_draw_tint(Img *im, int x, int y, int a, u32 color);
+void  gfx_line(float x0, float y0, float x1, float y1, float width, u32 c, int a);
+void  gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c, int a);
+void  gfx_logo(int x, int y, int size, u32 color, u32 eye);   /* the MiaouOS cat-head logo */
 void  img_free(Img *im);
 Img  *wallpaper(int night);                      /* scaled to screen (cover) */
 

@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <linux/input.h>
 #include <linux/kd.h>
+#include <math.h>
 #include <poll.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -37,8 +38,8 @@ static int menu_open, menu_sel, ctx_open, ctx_x, ctx_y;
 static char menu_filter[48];
 static int hot_sig;
 
-static const u32 ACCENTS[4][2] = { {RGB(255, 122, 198), RGB(214, 70, 150)}, {RGB(157, 123, 255), RGB(110, 80, 214)},
-                                   {RGB(63, 208, 192), RGB(30, 150, 140)}, {RGB(255, 162, 77), RGB(210, 120, 40)} };
+static const u32 ACCENTS[4][2] = { {RGB(232, 163, 61), RGB(154, 91, 0)}, {RGB(240, 120, 106), RGB(180, 65, 47)},
+                                   {RGB(111, 160, 240), RGB(47, 99, 194)}, {RGB(141, 184, 148), RGB(60, 122, 74)} };
 
 void dirty(void) { need_draw = 1; }
 
@@ -54,12 +55,14 @@ static void slog(const char *fmt, ...) {
 /* ================================================================== theme */
 void theme_apply(void) {
     u32 a = ACCENTS[accent_idx][0], a2 = ACCENTS[accent_idx][1];
-    if (theme_dark) {
-        TH = (Theme){ RGB(20, 16, 43), RGB(24, 19, 50), RGB(31, 26, 56), RGB(42, 35, 71), RGB(36, 30, 62), RGB(243, 238, 252), RGB(165, 159, 196),
-                      a, a2, RGB(51, 43, 85), RGB(69, 59, 112), RGB(58, 50, 96), RGB(22, 18, 41), RGB(74, 56, 120), RGB(127, 227, 168), RGB(255, 107, 139), RGB(255, 211, 107), 1 };
+    if (theme_dark) {   /* graphite ramp */
+        TH = (Theme){ RGB(20, 20, 21), RGB(15, 15, 16), RGB(25, 25, 27), RGB(35, 35, 37), RGB(29, 29, 31), RGB(237, 237, 237), RGB(161, 161, 166),
+                      a, a2, RGB(35, 35, 37), RGB(46, 46, 49), RGB(46, 46, 49), RGB(15, 15, 16), 0, RGB(76, 195, 138), RGB(229, 72, 77), RGB(224, 160, 60), 1 };
+        TH.sel = gfx_mix(RGB(25, 25, 27), a, 46);
     } else {
-        TH = (Theme){ RGB(240, 232, 250), RGB(252, 247, 255), RGB(252, 249, 255), RGB(239, 230, 250), RGB(244, 238, 252), RGB(42, 33, 68), RGB(122, 111, 153),
-                      a2, a, RGB(231, 221, 245), RGB(217, 203, 238), RGB(216, 205, 234), RGB(255, 255, 255), RGB(226, 208, 248), RGB(30, 160, 100), RGB(210, 50, 90), RGB(190, 130, 20), 0 };
+        TH = (Theme){ RGB(250, 250, 250), RGB(245, 245, 246), RGB(255, 255, 255), RGB(244, 244, 245), RGB(248, 248, 249), RGB(23, 23, 23), RGB(82, 82, 82),
+                      a2, a, RGB(236, 236, 238), RGB(224, 224, 227), RGB(222, 222, 225), RGB(255, 255, 255), 0, RGB(22, 163, 74), RGB(220, 38, 38), RGB(180, 100, 0), 0 };
+        TH.sel = gfx_mix(RGB(255, 255, 255), a2, 40);
     }
 }
 
@@ -128,21 +131,22 @@ int hover(int x, int y, int w, int h) { return mouse_x >= x && mouse_x < x + w &
 int ui_button(Win *w, int x, int y, int bw, int bh, const char *label, const char *icon, int id, int primary) {
     int hot = hover(x, y, bw, bh) && w == focus_win;
     if (!w) hot = hover(x, y, bw, bh);
-    u32 bg = primary ? (hot ? TH.accent2 : TH.accent) : (hot ? TH.btn_hot : TH.btn);
-    u32 fg = primary ? (TH.dark ? RGB(30, 12, 40) : RGB(255, 255, 255)) : TH.text;
-    gfx_rrect(x, y, bw, bh, S(8), bg, 255);
+    u32 bg = primary ? (TH.dark ? (hot ? RGB(255, 255, 255) : RGB(237, 237, 237)) : (hot ? RGB(60, 60, 60) : RGB(23, 23, 23))) : (hot ? TH.btn_hot : TH.btn);
+    u32 fg = primary ? (TH.dark ? RGB(20, 20, 21) : RGB(255, 255, 255)) : TH.text;
+    gfx_rrect(x, y, bw, bh, S(6), bg, 255);
+    if (!primary) gfx_rrect_line(x, y, bw, bh, S(6), TH.line, 255);
     int px = S(14), tw = label ? text_w(F_BOLD, label, px) : 0;
     int isz = icon ? S(18) : 0, gap = (icon && label && *label) ? S(6) : 0;
     int cx = x + (bw - (tw + isz + gap)) / 2;
-    if (icon) { Img *im = img_get(icon, isz); if (im) img_draw(im, cx, y + (bh - isz) / 2, 255); cx += isz + gap; }
+    if (icon) { Img *im = img_get(icon, isz); if (im) img_draw_tint(im, cx, y + (bh - isz) / 2, 255, fg); cx += isz + gap; }
     if (label) text_draw(F_BOLD, cx, y + (bh - font_line_h(F_BOLD, px)) / 2, label, fg, px);
     if (w && id) zone(w, x, y, bw, bh, id);
     return hot;
 }
 int ui_tab(Win *w, int x, int y, int bw, int bh, const char *label, const char *icon, int id, int selected) {
     int hot = hover(x, y, bw, bh);
-    if (selected) gfx_rrect(x, y, bw, bh, S(8), TH.sel, 255);
-    else if (hot) gfx_rrect(x, y, bw, bh, S(8), TH.btn, 255);
+    if (selected) { gfx_rrect(x, y, bw, bh, S(6), TH.btn_hot, 255); gfx_fill(x, y + S(8), S(2), bh - S(16), TH.accent, 255); }
+    else if (hot) gfx_rrect(x, y, bw, bh, S(6), TH.btn, 255);
     int cx = x + S(10);
     if (icon) { Img *im = img_get(icon, S(20)); if (im) img_draw(im, cx, y + (bh - S(20)) / 2, 255); cx += S(28); }
     int px = S(14);
@@ -151,8 +155,8 @@ int ui_tab(Win *w, int x, int y, int bw, int bh, const char *label, const char *
     return hot;
 }
 void ui_field(int x, int y, int fw, int fh, const char *text, int focused, const char *placeholder) {
-    gfx_rrect(x, y, fw, fh, S(8), TH.field, 255);
-    gfx_rrect_line(x, y, fw, fh, S(8), focused ? TH.accent : TH.line, 255);
+    gfx_rrect(x, y, fw, fh, S(6), TH.field, 255);
+    gfx_rrect_line(x, y, fw, fh, S(6), focused ? TH.accent : TH.line, 255);
     int px = S(14), ty = y + (fh - font_line_h(F_UI, px)) / 2;
     gfx_clip(x + S(6), y, fw - S(12), fh);
     int tw = 0;
@@ -260,13 +264,11 @@ int kbd_layout(void) { return layout; }
 void kbd_set_layout(int fr) { layout = fr ? 1 : 0; cfg_set("layout", fr ? "fr" : "us"); }
 
 /* ================================================================== window manager */
-static int panel_h(void) { return S(34); }
-static int dock_icon(void) { return S(46); }
-static int dock_h(void) { return dock_icon() + S(22); }
+static int panel_h(void) { return S(44); }          /* Plasma-style panel at the bottom */
 static void work_area(int *x, int *y, int *w, int *h) {
-    *x = 0; *y = panel_h(); *w = SW; *h = SH - panel_h() - dock_h() - S(14);
+    *x = 0; *y = 0; *w = SW; *h = SH - panel_h();
 }
-static int title_h(void) { return S(38); }
+static int title_h(void) { return S(36); }
 
 static int win_index(Win *w) { for (int i = 0; i < nwins; i++) if (wins[i] == w) return i; return -1; }
 static void raise_win(Win *w) {
@@ -362,9 +364,10 @@ static Win *win_at(int x, int y) {
     }
     return NULL;
 }
-static void ctrl_center(Win *w, int i, int *cx, int *cy) { *cx = w->x + S(22) + i * S(24); *cy = w->y + title_h() / 2; }
-static int ctrl_hit(Win *w, int x, int y) {
-    for (int i = 0; i < 3; i++) { int cx, cy; ctrl_center(w, i, &cx, &cy); if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= S(10) * S(10)) return i + 1; }
+static void ctrl_center(Win *w, int i, int *cx, int *cy) { *cx = w->x + w->w - S(24) - i * S(32); *cy = w->y + title_h() / 2; }   /* 0 close, 1 maximise, 2 minimise */
+static int ctrl_hit(Win *w, int x, int y) {      /* returns 1 close, 2 minimise, 3 maximise */
+    static const int ret[3] = { 1, 3, 2 };
+    for (int i = 0; i < 3; i++) { int cx, cy; ctrl_center(w, i, &cx, &cy); if (abs(x - cx) <= S(14) && abs(y - cy) <= S(14)) return ret[i]; }
     return 0;
 }
 
@@ -397,36 +400,37 @@ static void szone(int x, int y, int w, int h, int id) { if (nsz < 96) { sz[nsz].
 
 static void draw_window(Win *w) {
     if (w->minimized) return;
-    int th = title_h(), focus = (w == focus_win), r = w->maximized ? 0 : S(11);
-    if (!w->maximized) gfx_shadow(w->x, w->y, w->w, w->h, r, S(22), focus ? 130 : 80);
+    int th = title_h(), focus = (w == focus_win), r = w->maximized ? 0 : S(8);
+    if (!w->maximized) gfx_shadow(w->x, w->y, w->w, w->h, r, S(20), focus ? 110 : 60);
     gfx_rrect(w->x, w->y, w->w, w->h, r, TH.win, 255);
     gfx_clip(w->x, w->y, w->w, th);
     gfx_rrect(w->x, w->y, w->w, th + r + 2, r, focus ? TH.win_title : TH.win_title_dim, 255);
     gfx_unclip();
-    gfx_hline(w->x, w->y + th - 1, w->w, TH.line, 160);
-    gfx_rrect_line(w->x, w->y, w->w, w->h, r, focus ? TH.accent : TH.line, focus ? 200 : 255);
-    /* traffic lights */
-    u32 cols[3] = { TH.bad, TH.warn, TH.good };
-    int hv = ctrl_hit(w, mouse_x, mouse_y) || (hover(w->x + S(8), w->y + S(6), S(80), th - S(12)));
-    for (int i = 0; i < 3; i++) {
-        int cx, cy; ctrl_center(w, i, &cx, &cy);
-        gfx_circle(cx, cy, S(7), focus ? cols[i] : TH.line, 255);
-        if (hv && focus) {
-            const char *g = i == 0 ? "×" : i == 1 ? "–" : "+";
-            int tw = text_w(F_BOLD, g, S(13));
-            text_draw(F_BOLD, cx - tw / 2, cy - S(9), g, RGB(40, 20, 50), S(13));
-        }
-    }
-    /* title */
-    int px = S(14);
-    int tw = text_w(F_BOLD, w->title, px), isz = S(20);
+    gfx_hline(w->x + 1, w->y + th - 1, w->w - 2, TH.line, 255);
+    gfx_rrect_line(w->x, w->y, w->w, w->h, r, TH.line, 255);
+    /* title: centred, with the application icon */
+    int px = S(14), tw = text_w(F_BOLD, w->title, px), isz = S(16);
     Img *ic = img_get(w->app->icon, isz);
     int total = tw + (ic ? isz + S(8) : 0), tx = w->x + (w->w - total) / 2;
-    if (tx < w->x + S(90)) tx = w->x + S(90);
-    gfx_clip(w->x + S(80), w->y, w->w - S(90), th);
-    if (ic) { img_draw(ic, tx, w->y + (th - isz) / 2, focus ? 255 : 150); tx += isz + S(8); }
-    text_draw(F_BOLD, tx, w->y + (th - font_line_h(F_BOLD, px)) / 2, w->title, focus ? TH.text : TH.dim, px);
+    if (tx < w->x + S(12)) tx = w->x + S(12);
+    gfx_clip(w->x + S(8), w->y, w->w - S(112), th);
+    u32 tc = focus ? TH.text : TH.dim;
+    if (ic) { img_draw_tint(ic, tx, w->y + (th - isz) / 2, 255, tc); tx += isz + S(8); }
+    text_draw(F_BOLD, tx, w->y + (th - font_line_h(F_BOLD, px)) / 2, w->title, tc, px);
     gfx_unclip();
+    /* buttons on the right: minimise, maximise, close */
+    for (int i = 0; i < 3; i++) {
+        int cx, cy; ctrl_center(w, i, &cx, &cy);
+        int hot = hover(cx - S(14), cy - S(14), S(28), S(28));
+        u32 gl = tc;
+        if (hot) { gfx_rrect(cx - S(14), cy - S(14), S(28), S(28), S(6), i == 0 ? TH.bad : TH.btn_hot, 255); if (i == 0) gl = RGB(255, 255, 255); else gl = TH.text; }
+        float k = (float)S(5), lw = 1.5f * (float)UIP / 100.0f;
+        if (i == 0) { gfx_line((float)cx - k, (float)cy - k, (float)cx + k, (float)cy + k, lw, gl, 255); gfx_line((float)cx - k, (float)cy + k, (float)cx + k, (float)cy - k, lw, gl, 255); }
+        else if (i == 1) {
+            if (w->maximized || w->snapped) { gfx_rrect_line(cx - S(3), cy - S(6), S(9), S(9), 0, gl, 255); gfx_rrect_line(cx - S(6), cy - S(3), S(9), S(9), 0, gl, 255); }
+            else gfx_rrect_line(cx - S(5), cy - S(5), S(10), S(10), 0, gl, 255);
+        } else gfx_line((float)cx - k, (float)cy, (float)cx + k, (float)cy, lw, gl, 255);
+    }
     /* content */
     w->cx = w->x + 1; w->cy = w->y + th; w->cw = w->w - 2; w->ch = w->h - th - 1;
     w->nz = 0;
@@ -435,7 +439,7 @@ static void draw_window(Win *w) {
     gfx_unclip();
 }
 
-static const char *DAYS[] = { "dim", "lun", "mar", "mer", "jeu", "ven", "sam" };
+static const char *DAYS[] = { "dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam." };
 static const char *MONTHS[] = { "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc." };
 
 static int menu_items[16], menu_n;
@@ -453,161 +457,151 @@ static void menu_rebuild(void) {
     if (menu_sel >= menu_n) menu_sel = menu_n ? menu_n - 1 : 0;
 }
 
+/* ---- Plasma-style bottom panel: launcher, task icons, tray, clock, show-desktop ---- */
+static int task_w(void) { return S(48); }
+static int task_x0(void) { return S(48) + S(4); }
+enum { Z_SHOWDESK = 7 };
 static void draw_panel(void) {
-    int ph = panel_h();
-    gfx_fill(0, 0, SW, ph, TH.panel, 225);
-    gfx_hline(0, ph - 1, SW, TH.line, 160);
-    int px = S(14);
-    /* menu button */
-    const char *label = "MiaouOS";
-    int bw = S(34) + text_w(F_BOLD, label, px) + S(8);
-    if (menu_open || hover(S(6), S(3), bw, ph - S(6))) gfx_rrect(S(6), S(3), bw, ph - S(6), S(8), TH.btn, 255);
-    Img *paw = img_get("paw", S(22));
-    if (paw) img_draw(paw, S(14), (ph - S(22)) / 2, 255);
-    text_draw(F_BOLD, S(14) + S(28), (ph - font_line_h(F_BOLD, px)) / 2, label, TH.text, px);
-    szone(S(6), S(3), bw, ph - S(6), Z_MENU);
-    if (focus_win) {
-        gfx_vline(bw + S(18), S(9), ph - S(18), TH.line, 255);
-        text_draw(F_UI, bw + S(30), (ph - font_line_h(F_UI, px)) / 2, focus_win->title, TH.dim, px);
+    int ph = panel_h(), py = SH - ph;
+    gfx_fill(0, py, SW, ph, TH.panel, 250);
+    gfx_hline(0, py, SW, TH.line, 255);
+    /* launcher: the flat logo, nothing else */
+    int lw = S(48);
+    if (menu_open) gfx_fill(0, py, lw, ph, TH.btn, 255); else if (hover(0, py, lw, ph)) gfx_fill(0, py, lw, ph, TH.btn, 200);
+    gfx_logo(S(12), py + (ph - S(24)) / 2, S(24), TH.text, menu_open ? TH.btn : (hover(0, py, lw, ph) ? TH.btn : TH.panel));
+    szone(0, py, lw, ph, Z_MENU);
+    /* task icons: line icons in the text colour; a short accent bar marks running apps */
+    int n = NAPPS - 1, tw = task_w(), isz = S(20), hovered = -1;
+    for (int i = 0; i < n; i++) {
+        int x = task_x0() + i * tw, running = 0, active = 0;
+        for (int k = 0; k < nwins; k++) if (wins[k]->app == APPS[i]) { running = 1; if (wins[k] == focus_win && !wins[k]->minimized) active = 1; }
+        int hot = hover(x, py, tw, ph); if (hot) hovered = i;
+        if (active) gfx_rrect(x + S(2), py + S(5), tw - S(4), ph - S(10), S(6), TH.btn, 255); else if (hot) gfx_rrect(x + S(2), py + S(5), tw - S(4), ph - S(10), S(6), TH.btn, 160);
+        Img *im = img_get(APPS[i]->icon, isz); if (im) img_draw_tint(im, x + (tw - isz) / 2, py + (ph - isz) / 2 - S(1), 255, running || hot ? TH.text : TH.dim);
+        if (running) gfx_rrect(x + tw / 2 - S(6), py + ph - S(4), S(12), S(2), S(1), active ? TH.accent : TH.dim, 255);
+        szone(x, py, tw, ph, Z_DOCK + i);
     }
-    /* clock */
+    /* right side: show-desktop strip, clock, tray */
+    int sd = S(8);
+    gfx_fill(SW - sd, py + S(8), 1, ph - S(16), TH.line, 255);
+    if (hover(SW - sd, py, sd, ph)) gfx_fill(SW - sd, py, sd, ph, TH.btn_hot, 255);
+    szone(SW - sd, py, sd, ph, Z_SHOWDESK);
     time_t now = time(NULL); struct tm lt; char hm[16] = "--:--", date[40] = "";
     if (localtime_r(&now, &lt)) { strftime(hm, sizeof hm, "%H:%M", &lt); snprintf(date, sizeof date, "%s %d %s", DAYS[lt.tm_wday], lt.tm_mday, MONTHS[lt.tm_mon]); }
-    int hw = text_w(F_BOLD, hm, px), dw = text_w(F_UI, date, px - 1), cx = (SW - (hw + S(12) + dw)) / 2;
-    text_draw(F_BOLD, cx, (ph - font_line_h(F_BOLD, px)) / 2, hm, TH.text, px);
-    text_draw(F_UI, cx + hw + S(12), (ph - font_line_h(F_UI, px - 1)) / 2, date, TH.dim, px - 1);
-    /* tray, right to left */
-    int x = SW - S(10), ih = S(26);
-    struct { const char *icon, *txt; int id; } tray[] = { { "plug", NULL, Z_POWER }, { TH.dark ? "moon" : "sun", NULL, Z_THEME }, { NULL, layout ? "FR" : "US", Z_LAYOUT }, { net_up ? "signal" : "plug", net_text, Z_NET } };
-    for (int i = 0; i < 4; i++) {
-        int tw = tray[i].txt ? text_w(F_UI, tray[i].txt, px - 1) : 0;
-        int iw = tray[i].icon ? S(20) + (tw ? S(6) : 0) : 0;
-        int w = S(16) + iw + tw;
-        x -= w;
-        if (hover(x, (ph - ih) / 2, w, ih)) gfx_rrect(x, (ph - ih) / 2, w, ih, S(8), TH.btn, 255);
-        int ix = x + S(8);
-        if (tray[i].icon) { Img *im = img_get(tray[i].icon, S(18)); if (im) img_draw(im, ix, (ph - S(18)) / 2, 255); ix += S(18) + (tw ? S(6) : 0); }
-        if (tray[i].txt) text_draw(F_BOLD, ix, (ph - font_line_h(F_BOLD, px - 1)) / 2, tray[i].txt, i == 3 && !net_up ? TH.dim : TH.text, px - 1);
-        szone(x, (ph - ih) / 2, w, ih, tray[i].id);
-        x -= S(4);
-    }
-}
-
-static int dock_geom(int *dx, int *dy, int *dw, int *dh, int *gap) {
-    int n = NAPPS - 1;               /* the last app (About) lives in the menu only */
-    *gap = S(10);
-    int isz = dock_icon();
-    *dw = n * isz + (n - 1) * *gap + S(28);
-    *dh = isz + S(20);
-    *dx = (SW - *dw) / 2; *dy = SH - *dh - S(10);
-    return n;
-}
-static void draw_dock(void) {
-    int dx, dy, dw, dh, gap; int n = dock_geom(&dx, &dy, &dw, &dh, &gap);
-    int isz = dock_icon();
-    gfx_shadow(dx, dy, dw, dh, S(18), S(14), 90);
-    gfx_rrect(dx, dy, dw, dh, S(18), TH.panel, 215);
-    gfx_rrect_line(dx, dy, dw, dh, S(18), TH.line, 200);
-    int hovered = -1;
-    for (int i = 0; i < n; i++) {
-        int ix = dx + S(14) + i * (isz + gap), iy = dy + S(10);
-        int hot = hover(ix - gap / 2, dy, isz + gap, dh);
-        if (hot) hovered = i;
-        int lift = hot ? S(6) : 0;
-        if (hot) gfx_rrect(ix - S(3), iy - lift - S(3), isz + S(6), isz + S(6), S(12), TH.btn, 200);
-        Img *im = img_get(APPS[i]->icon, isz - S(8));
-        if (im) img_draw(im, ix + S(4), iy - lift + S(4), 255);
-        int running = 0, active = 0;
-        for (int k = 0; k < nwins; k++) if (wins[k]->app == APPS[i]) { running = 1; if (wins[k] == focus_win) active = 1; }
-        if (running) gfx_circle(ix + isz / 2, dy + dh - S(8), active ? S(3) : S(2), active ? TH.accent : TH.dim, 255);
-        szone(ix - gap / 2, dy, isz + gap, dh, Z_DOCK + i);
-    }
+    int px = S(14), cw1 = text_w(F_BOLD, hm, px), cw2 = text_w(F_UI, date, S(12)), cw = cw1 > cw2 ? cw1 : cw2;
+    int cx = SW - sd - S(12) - cw;
+    text_draw(F_BOLD, cx + (cw - cw1) / 2, py + S(5), hm, TH.text, px);
+    text_draw(F_UI, cx + (cw - cw2) / 2, py + S(23), date, TH.dim, S(12));
+    int x = cx - S(8), ih = ph - S(12), ty = py + S(6);
+    /* tray items right-to-left: theme, keyboard layout, network */
+    x -= S(36); if (hover(x, ty, S(36), ih)) gfx_rrect(x, ty, S(36), ih, S(6), TH.btn, 255);
+    { Img *ti = img_get(TH.dark ? "moon" : "sun", S(18)); if (ti) img_draw_tint(ti, x + S(9), ty + (ih - S(18)) / 2, 255, TH.text); }
+    szone(x, ty, S(36), ih, Z_THEME);
+    const char *lay = layout ? "FR" : "US"; int lwid = text_w(F_BOLD, lay, S(12)) + S(20);
+    x -= lwid; if (hover(x, ty, lwid, ih)) gfx_rrect(x, ty, lwid, ih, S(6), TH.btn, 255);
+    text_draw(F_BOLD, x + S(10), ty + (ih - font_line_h(F_BOLD, S(12))) / 2, lay, TH.text, S(12)); szone(x, ty, lwid, ih, Z_LAYOUT);
+    int nw = S(34) + text_w(F_UI, net_text, S(12)) + S(10);
+    x -= nw; if (hover(x, ty, nw, ih)) gfx_rrect(x, ty, nw, ih, S(6), TH.btn, 255);
+    Img *ni = img_get(net_up ? "signal" : "plug", S(18)); if (ni) img_draw_tint(ni, x + S(8), ty + (ih - S(18)) / 2, 255, net_up ? TH.text : TH.dim);
+    text_draw(F_UI, x + S(32), ty + (ih - font_line_h(F_UI, S(12))) / 2, net_text, net_up ? TH.text : TH.dim, S(12)); szone(x, ty, nw, ih, Z_NET);
+    /* tooltip for the hovered task icon */
     if (hovered >= 0) {
-        const char *t = APPS[hovered]->title; int px = S(13), tw = text_w(F_BOLD, t, px) + S(20);
-        int ix = dx + S(14) + hovered * (isz + gap) + isz / 2;
-        int tx = ix - tw / 2, ty = dy - S(38);
-        gfx_rrect(tx, ty, tw, S(28), S(8), TH.win_title, 245);
-        gfx_rrect_line(tx, ty, tw, S(28), S(8), TH.line, 255);
-        text_draw(F_BOLD, tx + S(10), ty + (S(28) - font_line_h(F_BOLD, px)) / 2, t, TH.text, px);
+        const char *t = APPS[hovered]->title; int tpx = S(12), ttw = text_w(F_UI, t, tpx) + S(20);
+        int ix = task_x0() + hovered * tw + tw / 2, tx = ix - ttw / 2, tyy = py - S(36);
+        gfx_shadow(tx, tyy, ttw, S(28), S(6), S(10), 90);
+        gfx_rrect(tx, tyy, ttw, S(28), S(6), TH.win_title, 255); gfx_rrect_line(tx, tyy, ttw, S(28), S(6), TH.line, 255);
+        text_draw(F_UI, tx + S(10), tyy + (S(28) - font_line_h(F_UI, tpx)) / 2, t, TH.text, tpx);
     }
 }
 
+/* ---- Kickoff-style application launcher ---- */
 static void draw_menu(void) {
     menu_rebuild();
-    int rowh = S(52), w = S(350), x = S(8), y = panel_h() + S(6);
-    int h = S(60) + (menu_n ? menu_n : 1) * rowh + S(66);
-    gfx_shadow(x, y, w, h, S(14), S(20), 140);
-    gfx_rrect(x, y, w, h, S(14), TH.panel, 250);
-    gfx_rrect_line(x, y, w, h, S(14), TH.line, 255);
-    ui_field(x + S(12), y + S(12), w - S(24), S(36), menu_filter, 1, "Rechercher une application…");
-    int ry = y + S(60);
+    int rowh = S(52), w = S(440), headh = S(64), foot = S(60);
+    int h = headh + S(8) + (menu_n ? menu_n : 1) * rowh + foot;
+    int x = S(4), y = SH - panel_h() - h - S(4);
+    gfx_shadow(x, y, w, h, S(8), S(24), 140);
+    gfx_rrect(x, y, w, h, S(8), TH.win, 255);
+    gfx_clip(x, y, w, headh); gfx_rrect(x, y, w, headh + S(8), S(8), TH.win_title, 255); gfx_unclip();
+    gfx_logo(x + S(16), y + (headh - S(28)) / 2, S(28), TH.text, TH.win_title);
+    text_draw(F_BOLD, x + S(56), y + S(14), "MiaouOS", TH.text, S(16));
+    text_draw(F_UI, x + S(56), y + S(36), "Le Linux des chats", TH.dim, S(12));
+    ui_field(x + S(190), y + (headh - S(36)) / 2, w - S(206), S(36), menu_filter, 1, "Rechercher");
+    gfx_hline(x, y + headh, w, TH.line, 255);
+    int ry = y + headh + S(8);
     if (!menu_n) text_draw(F_UI, x + S(20), ry + S(14), "Aucune application trouvée", TH.dim, S(14));
     for (int i = 0; i < menu_n; i++) {
         App *a = APPS[menu_items[i]];
         int hot = hover(x + S(8), ry, w - S(16), rowh - S(4));
-        if (i == menu_sel || hot) gfx_rrect(x + S(8), ry, w - S(16), rowh - S(4), S(10), i == menu_sel ? TH.sel : TH.btn, 255);
-        Img *im = img_get(a->icon, S(34)); if (im) img_draw(im, x + S(18), ry + (rowh - S(4) - S(34)) / 2, 255);
-        text_draw(F_BOLD, x + S(64), ry + S(5), a->title, TH.text, S(15));
-        text_draw(F_UI, x + S(64), ry + S(25), a->desc, TH.dim, S(12));
+        if (i == menu_sel || hot) { gfx_rrect(x + S(8), ry, w - S(16), rowh - S(4), S(6), i == menu_sel ? TH.btn_hot : TH.btn, 255); }
+        gfx_rrect(x + S(16), ry + S(6), S(36), S(36), S(8), TH.btn, 255); gfx_rrect_line(x + S(16), ry + S(6), S(36), S(36), S(8), TH.line, 255);
+        Img *im = img_get(a->icon, S(20)); if (im) img_draw(im, x + S(24), ry + S(14), 255);
+        text_draw(F_BOLD, x + S(64), ry + S(7), a->title, TH.text, S(14));
+        text_draw(F_UI, x + S(64), ry + S(27), a->desc, TH.dim, S(12));
         szone(x + S(8), ry, w - S(16), rowh - S(4), Z_MI + i);
         ry += rowh;
     }
     if (!menu_n) ry += rowh;
-    gfx_hline(x + S(14), ry + S(4), w - S(28), TH.line, 255);
-    int bw = (w - S(24) - S(16)) / 3, by = ry + S(14);
-    ui_button(NULL, x + S(12), by, bw, S(38), "Console", NULL, 0, 0); szone(x + S(12), by, bw, S(38), Z_PWC);
-    ui_button(NULL, x + S(20) + bw, by, bw, S(38), "Redémarrer", NULL, 0, 0); szone(x + S(20) + bw, by, bw, S(38), Z_PWR);
-    ui_button(NULL, x + S(28) + 2 * bw, by, bw, S(38), "Éteindre", NULL, 0, 1); szone(x + S(28) + 2 * bw, by, bw, S(38), Z_PWO);
+    int fy = y + h - foot;
+    gfx_fill(x + 1, fy, w - 2, foot - 1, TH.win_title, 255); gfx_hline(x, fy, w, TH.line, 255);
+    int bw = (w - S(28) - S(16)) / 3, by = fy + S(12);
+    ui_button(NULL, x + S(14), by, bw, S(36), "Console", "console", 0, 0); szone(x + S(14), by, bw, S(36), Z_PWC);
+    ui_button(NULL, x + S(22) + bw, by, bw, S(36), "Redémarrer", "reboot", 0, 0); szone(x + S(22) + bw, by, bw, S(36), Z_PWR);
+    ui_button(NULL, x + S(30) + 2 * bw, by, bw, S(36), "Éteindre", "power", 0, 1); szone(x + S(30) + 2 * bw, by, bw, S(36), Z_PWO);
 }
 
 static const char *CTX_ITEMS[] = { "Nouveau terminal", "Fichiers", "Navigateur", "Changer de thème", "Paramètres", "Afficher le bureau" };
 static void draw_ctx(void) {
-    int n = 6, rowh = S(36), w = S(230), h = n * rowh + S(12);
+    int n = 6, rowh = S(32), w = S(232), h = n * rowh + S(12);
     int x = ctx_x, y = ctx_y;
     if (x + w > SW) x = SW - w - S(4);
-    if (y + h > SH) y = SH - h - S(4);
+    if (y + h > SH - panel_h()) y = SH - panel_h() - h - S(4);
     ctx_x = x; ctx_y = y;
-    gfx_shadow(x, y, w, h, S(10), S(14), 140);
-    gfx_rrect(x, y, w, h, S(10), TH.panel, 250);
-    gfx_rrect_line(x, y, w, h, S(10), TH.line, 255);
+    gfx_shadow(x, y, w, h, S(8), S(16), 130);
+    gfx_rrect(x, y, w, h, S(8), TH.win_title, 255);
+    gfx_rrect_line(x, y, w, h, S(8), TH.line, 255);
     for (int i = 0; i < n; i++) {
-        int ry = y + S(6) + i * rowh;
-        if (hover(x + S(4), ry, w - S(8), rowh)) gfx_rrect(x + S(4), ry, w - S(8), rowh, S(8), TH.btn, 255);
+        int ry = y + S(6) + i * rowh, hot = hover(x + S(4), ry, w - S(8), rowh);
+        if (hot) gfx_rrect(x + S(4), ry, w - S(8), rowh, S(4), TH.btn_hot, 255);
         text_draw(F_UI, x + S(16), ry + (rowh - font_line_h(F_UI, S(14))) / 2, CTX_ITEMS[i], TH.text, S(14));
         szone(x + S(4), ry, w - S(8), rowh, Z_CTX + i);
     }
 }
 
-/* Neko: a little cat that follows the pointer when enabled */
-static float nkx = 200, nky = 200; static long nk_still;
-static int neko_on(void) { return !strcmp(cfg_get("neko", "1"), "1"); }
-static int neko_step(void) {
-    if (!neko_on()) return 0;
-    float tx = (float)mouse_x + S(38), ty = (float)mouse_y + S(34);
-    float dx = tx - nkx, dy = ty - nky, d = dx * dx + dy * dy;
-    if (d > (float)(S(30) * S(30))) { float sp = 0.12f; nkx += dx * sp; nky += dy * sp; nk_still = now_ms(); return 1; }
-    return (now_ms() - nk_still) < 9000 ? 0 : (now_ms() / 700) % 2 ? 1 : 1;
+/* desktop icons (double-click to open), like a folder view */
+static const struct { int app; const char *label; } DESK[] = { { 1, "Accueil" }, { 0, "Terminal" }, { 2, "Navigateur" }, { 3, "Boutique" }, { 6, "Paramètres" } };
+static int desk_sel = -1;
+static void desk_icon_rect(int k, int *x, int *y, int *w, int *h) { *x = S(16); *y = S(16) + k * S(96); *w = S(88); *h = S(88); }
+static int desk_icon_hit(int mx, int my) {
+    for (int k = 0; k < 5; k++) { int x, y, w, h; desk_icon_rect(k, &x, &y, &w, &h); if (mx >= x && mx < x + w && my >= y && my < y + h) return k; }
+    return -1;
 }
-static void draw_neko(void) {
-    if (!neko_on()) return;
-    long idle = now_ms() - nk_still;
-    const char *icon = idle < 1500 ? "cat2" : idle < 9000 ? "cat" : "smile";
-    Img *im = img_get(icon, S(30));
-    int bob = idle < 1500 ? (int)((now_ms() / 120) % 2) * S(2) : 0;
-    if (im) img_draw(im, (int)nkx - S(15), (int)nky - S(15) - bob, 235);
-    if (idle >= 9000) text_draw(F_BOLD, (int)nkx + S(12), (int)nky - S(34) - (int)((now_ms() / 400) % 3) * S(3), "z", TH.dim, S(14));
+static void draw_desktop_icons(void) {
+    for (int k = 0; k < 5; k++) {
+        int x, y, w, h; desk_icon_rect(k, &x, &y, &w, &h);
+        if (y + h > SH - panel_h()) break;
+        int hot = hover(x, y, w, h);
+        if (k == desk_sel) gfx_rrect(x, y, w, h, S(8), RGB(0, 0, 0), 120); else if (hot) gfx_rrect(x, y, w, h, S(8), RGB(0, 0, 0), 70);
+        int tile = S(48); int tx0 = x + (w - tile) / 2, ty0 = y + S(8);
+        gfx_rrect(tx0, ty0, tile, tile, S(12), TH.win, 235); gfx_rrect_line(tx0, ty0, tile, tile, S(12), TH.line, 255);
+        Img *im = img_get(APPS[DESK[k].app]->icon, S(24)); if (im) img_draw(im, tx0 + (tile - S(24)) / 2, ty0 + (tile - S(24)) / 2, 255);
+        int tw = text_w(F_UI, DESK[k].label, S(12)), tx = x + (w - tw) / 2, ty = y + S(8) + tile + S(8);
+        text_draw(F_UI, tx + 1, ty + 1, DESK[k].label, RGB(0, 0, 0), S(12));
+        text_draw(F_UI, tx, ty, DESK[k].label, RGB(255, 255, 255), S(12));
+    }
 }
 
 static void draw_toasts(void) {
-    long t = now_ms(); int y = panel_h() + S(12);
+    long t = now_ms(); int y = SH - panel_h() - S(16);
     for (int i = 0; i < 4; i++) {
         if (toasts[i].until < t) continue;
-        int px = S(14), tw = text_w(F_BOLD, toasts[i].msg, px) + S(36), x = SW - tw - S(14);
-        gfx_shadow(x, y, tw, S(38), S(12), S(12), 120);
-        gfx_rrect(x, y, tw, S(38), S(12), TH.win_title, 250);
-        gfx_rrect_line(x, y, tw, S(38), S(12), TH.accent, 220);
-        text_draw(F_BOLD, x + S(18), y + (S(38) - font_line_h(F_BOLD, px)) / 2, toasts[i].msg, TH.text, px);
-        y += S(46);
+        int px = S(14), tw = text_w(F_UI, toasts[i].msg, px) + S(40), th = S(44), x = SW - tw - S(16);
+        y -= th;
+        gfx_shadow(x, y, tw, th, S(8), S(16), 120);
+        gfx_rrect(x, y, tw, th, S(8), TH.win_title, 255);
+        gfx_rrect_line(x, y, tw, th, S(8), TH.line, 255);
+        text_draw(F_UI, x + S(20), y + (th - font_line_h(F_UI, px)) / 2, toasts[i].msg, TH.text, px);
+        y -= S(8);
     }
 }
 
@@ -615,10 +609,9 @@ static void draw_scene(void) {
     nsz = 0; want_blink = 0;
     Img *wp = wallpaper(theme_dark);
     if (wp) gfx_blit(wp->px, wp->w, wp->h, 0, 0); else gfx_fill(0, 0, SW, SH, TH.bg, 255);
+    draw_desktop_icons();
     for (int i = 0; i < nwins; i++) draw_window(wins[i]);
-    draw_dock();
     draw_panel();
-    draw_neko();
     if (menu_open) draw_menu();
     if (ctx_open) draw_ctx();
     draw_toasts();
@@ -633,7 +626,7 @@ static void cursor_scale(int *s) { *s = (UIP + 50) / 100; if (*s < 1) *s = 1; }
 static void cursor_erase(void) { int s; cursor_scale(&s); gfx_present_rect(cur_dx - 1, cur_dy - 1, 14 * s + 2, 19 * s + 2); }
 static void cursor_draw(void) {
     int s; cursor_scale(&s);
-    u32 fill = TH.dark ? RGB(255, 245, 252) : RGB(255, 255, 255), edge = TH.dark ? RGB(25, 14, 45) : RGB(40, 25, 70);
+    u32 fill = RGB(255, 255, 255), edge = RGB(20, 20, 21);
     for (int r = 0; r < 17; r++)
         for (int c = 0; c < 12; c++) {
             char ch = CUR[r][c];
@@ -650,7 +643,7 @@ static int hot_compute(void) {
     for (int i = nsz - 1; i >= 0; i--) if (hover(sz[i].x, sz[i].y, sz[i].w, sz[i].h)) return 1000 + sz[i].id;
     Win *w = win_at(mouse_x, mouse_y);
     if (!w) return 0;
-    if (mouse_y < w->y + title_h() && mouse_x < w->x + S(90)) return 5000 + (int)w->serial;
+    if (mouse_y < w->y + title_h() && mouse_x > w->x + w->w - S(110)) return 5000 + (int)w->serial;
     for (int i = w->nz - 1; i >= 0; i--) if (hover(w->z[i].x, w->z[i].y, w->z[i].w, w->z[i].h)) return (int)w->serial * 10000 + w->z[i].id + 1;
     return 2;
 }
@@ -692,7 +685,7 @@ void desk_mode_changed(void) {
         if (w->maximized) { w->x = ax; w->y = ay; w->w = aw; w->h = ah; }
         if (w->w > SW) w->w = SW; if (w->h > SH - panel_h()) w->h = SH - panel_h();
         if (w->x + w->w > SW) w->x = SW - w->w; if (w->x < 0) w->x = 0;
-        if (w->y + w->h > SH) w->y = SH - w->h; if (w->y < panel_h()) w->y = panel_h();
+        if (w->y + w->h > SH) w->y = SH - w->h; if (w->y < 0) w->y = 0;
     }
     mouse_x = mouse_x >= SW ? SW - 1 : mouse_x; mouse_y = mouse_y >= SH ? SH - 1 : mouse_y;
     dirty();
@@ -718,7 +711,7 @@ static void shell_action(int id) {
     if (id == Z_MENU) { menu_open = !menu_open; menu_filter[0] = 0; menu_sel = 0; ctx_open = 0; }
     else if (id == Z_THEME) toggle_theme();
     else if (id == Z_LAYOUT) { kbd_set_layout(!layout); toast("Clavier : %s", layout ? "Français (AZERTY)" : "English (QWERTY)"); }
-    else if (id == Z_POWER) { menu_open = 1; menu_filter[0] = 0; }
+    else if (id == Z_SHOWDESK) show_desktop();
     else if (id == Z_NET) open_app("network");
     else if (id >= Z_DOCK && id < Z_DOCK + 50) {
         int i = id - Z_DOCK; menu_open = 0;
@@ -756,7 +749,11 @@ static void mouse_left_down(int x, int y) {
     }
     if (shell_click(x, y)) return;
     Win *w = win_at(x, y);
-    if (!w) return;
+    if (!w) {
+        int k = desk_icon_hit(x, y);
+        if (k >= 0) { desk_sel = k; if (dbl) open_app(APPS[DESK[k].app]->id); } else desk_sel = -1;
+        dirty(); return;
+    }
     raise_win(w);
     int th = title_h();
     if (!w->maximized && !w->snapped) {
@@ -786,7 +783,7 @@ static void mouse_left_down(int x, int y) {
 static void mouse_right_down(int x, int y) {
     if (menu_open || ctx_open) { menu_open = 0; ctx_open = 0; dirty(); }
     Win *w = win_at(x, y);
-    if (!w) { if (y > panel_h()) { ctx_open = 1; ctx_x = x; ctx_y = y; } dirty(); return; }
+    if (!w) { if (y < SH - panel_h()) { ctx_open = 1; ctx_x = x; ctx_y = y; } dirty(); return; }
     raise_win(w);
     if (y < w->y + title_h()) return;
     for (int i = w->nz - 1; i >= 0; i--)
@@ -800,7 +797,7 @@ static void mouse_right_down(int x, int y) {
 static void mouse_left_up(int x, int y) {
     if (drag_win) {
         Win *w = drag_win; drag_win = NULL;
-        if (y <= panel_h() + 2) win_maximize(w, 1);
+        if (y <= 2) win_maximize(w, 1);
         else if (x <= 2) win_snap(w, -1);
         else if (x >= SW - 3) win_snap(w, 1);
         dirty();
@@ -817,8 +814,8 @@ static void mouse_moved(int x, int y) {
             drag_dx = nw * (x - w->x) / (w->w ? w->w : 1); w->w = nw; w->h = w->oh ? w->oh : S(w->app->h);
         }
         w->x = x - drag_dx; w->y = y - drag_dy;
-        if (w->y < panel_h()) w->y = panel_h();
-        if (w->y > SH - S(60)) w->y = SH - S(60);
+        if (w->y < 0) w->y = 0;
+        if (w->y > SH - panel_h() - S(40)) w->y = SH - panel_h() - S(40);
         dirty(); return;
     }
     if (rs_win) {
@@ -831,7 +828,7 @@ static void mouse_moved(int x, int y) {
         if (rs_edge & 4) { nh = rs_oh - dy; ny = rs_oy + dy; }
         if (nw < minw) { if (rs_edge & 1) nx -= minw - nw; nw = minw; }
         if (nh < minh) { if (rs_edge & 4) ny -= minh - nh; nh = minh; }
-        if (ny < panel_h()) { nh -= panel_h() - ny; ny = panel_h(); }
+        if (ny < 0) { nh += ny; ny = 0; }
         w->x = nx; w->y = ny; w->w = nw; w->h = nh;
         dirty(); return;
     }
@@ -1055,8 +1052,7 @@ int main(int argc, char **argv) {
     }
     mouse_x = SW / 2; mouse_y = SH / 2;
     net_refresh();
-    nk_still = now_ms();
-    toast("Miaou ! Bienvenue sur MiaouOS");
+    toast("Bienvenue sur MiaouOS");
     draw_scene(); present_all();
     slog("MIAOUDESK_GUI_OK %dx%d scale=%d", SW, SH, UIP);
 
@@ -1098,7 +1094,6 @@ int main(int argc, char **argv) {
         if (t - last_tick >= 30) {
             last_tick = t;
             if (tick_all()) dirty();
-            if (neko_step()) dirty();
             if (t - last_net > 3000) { last_net = t; net_refresh(); }
             for (int i = 0; i < 4; i++) if (toasts[i].until && toasts[i].until < t + 40 && toasts[i].until > t - 80) dirty();
             static int clk; time_t nw = time(NULL); if ((int)(nw / 60) != clk) { clk = (int)(nw / 60); dirty(); }

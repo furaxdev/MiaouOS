@@ -23,7 +23,7 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 
 ## MiaouDesk graphique
 - [x] Gestionnaire de fenêtres framebuffer : déplacement, redimensionnement 8 bords, aimantation, minimisation, maximisation, fermeture, Alt+Tab.
-- [x] Panneau, dock, menu avec recherche, menu contextuel, notifications, thèmes clair/sombre, accent, échelle automatique.
+- [x] Panneau de type Plasma, lanceur avec recherche, icônes de bureau, menu contextuel, notifications, thèmes clair/sombre, accent, échelle automatique.
 - [x] Entrées : clavier AZERTY/QWERTY (codes bruts), souris/tablette/tactile via evdev.
 - [x] Terminal (pty), Fichiers, Navigateur texte, Boutique (miaou-get), Moniteur, Réseau (DHCP), Paramètres.
 - [ ] Serveur graphique/compositeur et sessions.

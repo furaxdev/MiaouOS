@@ -23,8 +23,8 @@ typedef struct {
 
 enum { A_UP = 1, A_REFRESH, A_MKDIR, A_NEWFILE, A_RENAME, A_DELETE, A_GOTO, A_OK, A_CANCEL, A_PLACE = 20, A_ROW = 1000 };
 static const struct { const char *name, *path, *icon; } PLACES[] = {
-    { "Accueil", "/root", "home" }, { "Racine", "/", "display" }, { "Applications", "/opt/miaou/packages", "package" },
-    { "Système", "/etc", "settings" }, { "Temporaire", "/tmp", "paw" }, { "Matériel", "/sys", "network" } };
+    { "Accueil", "/root", "home" }, { "Racine", "/", "drive" }, { "Applications", "/opt/miaou/packages", "package" },
+    { "Système", "/etc", "folder-system" }, { "Temporaire", "/tmp", "folder" }, { "Matériel", "/sys", "display" } };
 
 static int cmp_ent(const void *a, const void *b) {
     const Ent *x = a, *y = b;
@@ -147,7 +147,7 @@ static void files_draw(Win *w, int x, int y, int cw, int ch) {
     int side = S(176), tb = S(52), px = S(14), rowh = S(32);
     gfx_fill(x, y, side, ch, TH.panel, 255);
     gfx_vline(x + side, y, ch, TH.line, 255);
-    text_draw(F_BOLD, x + S(16), y + S(12), "LIEUX", TH.dim, S(11));
+    text_draw(F_UI, x + S(16), y + S(12), "Lieux", TH.dim, S(12));
     for (int i = 0; i < 6; i++) {
         int sel = !strcmp(f->cwd, PLACES[i].path);
         ui_tab(w, x + S(8), y + S(34) + i * S(38), side - S(16), S(34), PLACES[i].name, PLACES[i].icon, A_PLACE + i, sel);
@@ -164,9 +164,9 @@ static void files_draw(Win *w, int x, int y, int cw, int ch) {
     gfx_unclip();
     zone(w, fx, y + S(8), fw, S(36), A_GOTO);
     int tx = fx + fw + S(8);
-    ui_button(w, tx, y + S(8), S(40), S(36), NULL, "folder", A_MKDIR, 0);
+    ui_button(w, tx, y + S(8), S(40), S(36), NULL, "folder-new", A_MKDIR, 0);
     ui_button(w, tx + S(46), y + S(8), S(40), S(36), NULL, "note", A_NEWFILE, 0);
-    ui_button(w, tx + S(92), y + S(8), S(40), S(36), NULL, "palette", A_RENAME, 0);
+    ui_button(w, tx + S(92), y + S(8), S(40), S(36), NULL, "rename", A_RENAME, 0);
     ui_button(w, tx + S(138), y + S(8), S(40), S(36), NULL, "trash", A_DELETE, 0);
     gfx_hline(x + side + 1, y + tb, cw - side - 1, TH.line, 255);
 

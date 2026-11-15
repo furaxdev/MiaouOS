@@ -17,12 +17,12 @@
 #include "desk.h"
 
 static long mono_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1000L + t.tv_nsec / 1000000L; }
-static void card(int x, int y, int w, int h) { gfx_rrect(x, y, w, h, S(12), TH.panel, TH.dark ? 200 : 255); gfx_rrect_line(x, y, w, h, S(12), TH.line, 255); }
+static void card(int x, int y, int w, int h) { gfx_rrect(x, y, w, h, S(8), TH.panel, 255); gfx_rrect_line(x, y, w, h, S(8), TH.line, 255); }
 static void label(int x, int y, const char *s, u32 c, int px, int bold) { text_draw(bold ? F_BOLD : F_UI, x, y, s, c, px); }
 
 /* ================================================================== Settings */
 typedef struct { int tab; char test[64]; Img *thumb[2]; int thumb_w; char msg[160]; } Set;
-enum { T_APP = 1, T_DSP, T_KBD, T_NEKO, T_SYS, S_THEME_D = 20, S_THEME_L, S_ACC = 30, S_UI = 60, S_KFR = 70, S_KUS, S_NEKO_ON, S_NEKO_OFF, S_FOCUS };
+enum { T_APP = 1, T_DSP, T_KBD, T_SYS, S_THEME_D = 20, S_THEME_L, S_ACC = 30, S_UI = 60, S_KFR = 70, S_KUS, S_FOCUS };
 static const int UIS[] = { 0, 100, 125, 150, 200 };
 static void *set_create(Win *w) { (void)w; return calloc(1, sizeof(Set)); }
 static void set_destroy(Win *w) { Set *s = w->st; img_free(s->thumb[0]); img_free(s->thumb[1]); free(s); }
@@ -40,8 +40,6 @@ static void set_action(Win *w, int id, int mx, int my, int btn) {
     else if (id >= S_UI && id < S_UI + 6) apply_ui_scale(UIS[id - S_UI]);
     else if (id == S_KFR) { kbd_set_layout(1); toast("Clavier : Français (AZERTY)"); }
     else if (id == S_KUS) { kbd_set_layout(0); toast("Clavier : English (QWERTY)"); }
-    else if (id == S_NEKO_ON) { cfg_set("neko", "1"); toast("Miaou Neko est de retour !"); }
-    else if (id == S_NEKO_OFF) { cfg_set("neko", "0"); toast("Miaou Neko dort."); }
 }
 static void set_key(Win *w, int key, int mods) {
     Set *s = w->st; (void)mods;
@@ -53,9 +51,9 @@ static void set_key(Win *w, int key, int mods) {
 static void set_draw(Win *w, int x, int y, int cw, int ch) {
     Set *s = w->st; int side = S(190), px = S(14);
     gfx_fill(x, y, side, ch, TH.panel, 255); gfx_vline(x + side, y, ch, TH.line, 255);
-    const char *tabs[] = { "Apparence", "Affichage", "Clavier", "Miaou Neko", "Système" };
-    const char *icons[] = { "palette", "display", "keyboard", "cat", "settings" };
-    for (int i = 0; i < 5; i++) ui_tab(w, x + S(8), y + S(12) + i * S(42), side - S(16), S(38), tabs[i], icons[i], T_APP + i, s->tab == i);
+    const char *tabs[] = { "Apparence", "Affichage", "Clavier", "Système" };
+    const char *icons[] = { "palette", "display", "keyboard", "info" };
+    for (int i = 0; i < 4; i++) ui_tab(w, x + S(8), y + S(12) + i * S(42), side - S(16), S(38), tabs[i], icons[i], T_APP + i, s->tab == i);
     int cx = x + side + S(26), cy = y + S(22);
     if (s->tab == 0) {
         label(cx, cy, "Apparence", TH.text, S(22), 1);
@@ -76,7 +74,7 @@ static void set_draw(Win *w, int x, int y, int cw, int ch) {
         for (int i = 0; i < 4; i++) {
             int ax = cx + i * S(70);
             gfx_circle(ax + S(22), ay + S(52), S(22), ACCENT_RGB[i], 255);
-            if (i == accent_idx) gfx_circle(ax + S(22), ay + S(52), S(8), RGB(255, 255, 255), 255);
+            if (i == accent_idx) gfx_circle(ax + S(22), ay + S(52), S(7), RGB(20, 20, 21), 255);
             zone(w, ax, ay + S(30), S(44), S(44), S_ACC + i);
         }
     } else if (s->tab == 1) {
@@ -101,28 +99,21 @@ static void set_draw(Win *w, int x, int y, int cw, int ch) {
         ui_field(cx, cy + S(180), cw - side - S(52), S(44), s->test, 1, "Tapez ici pour tester votre clavier…");
         label(cx, cy + S(244), "Raccourcis : Super = menu · Alt+Tab = changer de fenêtre · Alt+F4 = fermer · Ctrl+Alt+T = terminal", TH.dim, S(13), 0);
         label(cx, cy + S(268), "Super+←/→ = moitié d'écran · Super+↑ = agrandir · Super+↓ = réduire · Super+D = bureau", TH.dim, S(13), 0);
-    } else if (s->tab == 3) {
-        label(cx, cy, "Miaou Neko", TH.text, S(22), 1);
-        label(cx, cy + S(34), "Le chat compagnon qui suit votre curseur et fait la sieste quand vous ne bougez plus.", TH.dim, px, 0);
-        Img *c = img_get("cat2", S(96)); if (c) img_draw(c, cx, cy + S(80), 255);
-        int on = !strcmp(cfg_get("neko", "1"), "1");
-        ui_button(w, cx + S(120), cy + S(96), S(180), S(44), "Activé", "paw", S_NEKO_ON, on);
-        ui_button(w, cx + S(312), cy + S(96), S(180), S(44), "Désactivé", "moon", S_NEKO_OFF, !on);
     } else {
         label(cx, cy, "Système", TH.text, S(22), 1);
         struct utsname u; uname(&u);
         char up[64] = "?", mem[96] = "?"; double upt = 0; FILE *f = fopen("/proc/uptime", "r"); if (f) { if (fscanf(f, "%lf", &upt) == 1) snprintf(up, sizeof up, "%d min %02d s", (int)upt / 60, (int)upt % 60); fclose(f); }
         unsigned long mt = 0, ma = 0; f = fopen("/proc/meminfo", "r"); if (f) { char l[128]; while (fgets(l, sizeof l, f)) { sscanf(l, "MemTotal: %lu", &mt); sscanf(l, "MemAvailable: %lu", &ma); } fclose(f); }
         snprintf(mem, sizeof mem, "%lu Mo libres sur %lu Mo", ma / 1024, mt / 1024);
-        const char *rows[][2] = { { "Système", "MiaouOS 0.2 — Le Linux des chats" }, { "Noyau", u.release }, { "Architecture", u.machine }, { "Nom d'hôte", u.nodename }, { "Temps de fonctionnement", up }, { "Mémoire", mem } };
+        const char *rows[][2] = { { "Système", "MiaouOS 0.2" }, { "Noyau", u.release }, { "Architecture", u.machine }, { "Nom d'hôte", u.nodename }, { "Temps de fonctionnement", up }, { "Mémoire", mem } };
         int ry = cy + S(54);
         card(cx, ry - S(8), cw - side - S(52), 6 * S(40) + S(12));
         for (int i = 0; i < 6; i++) { label(cx + S(18), ry + i * S(40) + S(6), rows[i][0], TH.dim, px, 0); label(cx + S(230), ry + i * S(40) + S(6), rows[i][1], TH.text, px, 1); }
     }
 }
-static int set_tick(Win *w) { Set *s = w->st; return s->tab == 4 ? (mono_ms() / 1000 != 0 && (mono_ms() % 1000) < 40) : 0; }
+static int set_tick(Win *w) { Set *s = w->st; return s->tab == 3 ? (mono_ms() / 1000 != 0 && (mono_ms() % 1000) < 40) : 0; }
 /* accent colours exported for the settings swatches */
-const unsigned ACCENT_RGB[4] = { RGB(255, 122, 198), RGB(157, 123, 255), RGB(63, 208, 192), RGB(255, 162, 77) };
+const unsigned ACCENT_RGB[4] = { RGB(232, 163, 61), RGB(240, 120, 106), RGB(111, 160, 240), RGB(141, 184, 148) };
 
 /* ================================================================== Task monitor */
 typedef struct { int pid; char name[20]; char state; unsigned long rss_kb, ticks, last_ticks; float cpu; } Proc;
@@ -324,18 +315,18 @@ static void net_draw(Win *w, int x, int y, int cw, int ch) {
 
 /* ================================================================== About */
 static void about_draw(Win *w, int x, int y, int cw, int ch) {
-    (void)w; Img *c = img_get("cat", S(120)); if (c) img_draw(c, x + (cw - S(120)) / 2, y + S(28), 255);
-    const char *t = "MiaouOS"; int tw = text_w(F_BOLD, t, S(34)); text_draw(F_BOLD, x + (cw - tw) / 2, y + S(160), t, TH.text, S(34));
-    t = "Le Linux des chats — version 0.2"; tw = text_w(F_UI, t, S(16)); text_draw(F_UI, x + (cw - tw) / 2, y + S(206), t, TH.accent, S(16));
-    const char *lines[] = { "Un système Linux indépendant : noyau + BusyBox, bureau MiaouDesk écrit en C.",
-                            "Interface sans serveur graphique : framebuffer, polices Nunito & JetBrains Mono (OFL).",
-                            "Icônes Twemoji © Twitter, Inc. et contributeurs (CC-BY 4.0).",
-                            "Noyau Linux (GPL-2.0), BusyBox (GPL-2.0), stb_image/stb_truetype (domaine public)." };
-    for (int i = 0; i < 4; i++) { tw = text_w(F_UI, lines[i], S(13)); text_draw(F_UI, x + (cw - tw) / 2, y + S(254) + i * S(26), lines[i], TH.dim, S(13)); }
-    (void)ch;
+    (void)w; (void)ch;
+    gfx_logo(x + (cw - S(88)) / 2, y + S(32), S(88), TH.text, TH.win);
+    const char *t = "MiaouOS"; int tw = text_w(F_BOLD, t, S(32)); text_draw(F_BOLD, x + (cw - tw) / 2, y + S(144), t, TH.text, S(32));
+    t = "Version 0.2"; tw = text_w(F_UI, t, S(16)); text_draw(F_UI, x + (cw - tw) / 2, y + S(190), t, TH.dim, S(16));
+    const char *lines[] = { "Noyau Linux et BusyBox, bureau MiaouDesk écrit en C",
+                            "Polices Nunito et JetBrains Mono (licence OFL)",
+                            "Icônes Lucide (licence ISC)",
+                            "stb_image et stb_truetype (domaine public)" };
+    for (int i = 0; i < 4; i++) { tw = text_w(F_UI, lines[i], S(13)); text_draw(F_UI, x + (cw - tw) / 2, y + S(240) + i * S(24), lines[i], TH.dim, S(13)); }
 }
 
-App app_settings = { "settings", "Paramètres", "settings", "Thème, affichage, clavier, Neko", 860, 560, set_create, set_destroy, set_draw, set_action, NULL, set_key, set_tick };
+App app_settings = { "settings", "Paramètres", "settings", "Thème, affichage, clavier", 860, 560, set_create, set_destroy, set_draw, set_action, NULL, set_key, set_tick };
 App app_monitor = { "monitor", "Moniteur système", "monitor", "Processus, CPU et mémoire", 860, 600, mon_create, mon_destroy, mon_draw, mon_action, mon_mouse, NULL, mon_tick };
 App app_network = { "network", "Réseau", "network", "Interfaces, DHCP et diagnostics", 780, 620, net_create, net_destroy, net_draw, net_action, NULL, NULL, net_tick };
-App app_about = { "about", "À propos de MiaouOS", "cat", "Version et crédits", 620, 440, NULL, NULL, about_draw, NULL, NULL, NULL, NULL };
+App app_about = { "about", "À propos de MiaouOS", "info", "Version et crédits", 620, 440, NULL, NULL, about_draw, NULL, NULL, NULL, NULL };

@@ -13,8 +13,9 @@ gcc -std=gnu11 -O2 -g -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-paramete
 # --- assets (fonts, icons, wallpapers) ---
 install -m 0644 "$ROOT"/assets/fonts/*.ttf "$ROOTFS/usr/share/miaou/fonts/"
 install -m 0644 "$ROOT"/assets/fonts/OFL-*.txt "$ROOTFS/usr/share/miaou/licenses/"
-install -m 0644 "$ROOT"/assets/icons/*.png "$ROOTFS/usr/share/miaou/icons/"
-install -m 0644 "$ROOT"/assets/icons/LICENSE-twemoji.txt "$ROOTFS/usr/share/miaou/licenses/"
+mkdir -p "$ROOTFS/usr/share/miaou/icons/mono"
+install -m 0644 "$ROOT"/assets/icons/mono/*.png "$ROOTFS/usr/share/miaou/icons/mono/"
+install -m 0644 "$ROOT"/assets/icons/LICENSE-lucide.txt "$ROOTFS/usr/share/miaou/licenses/"
 install -m 0644 "$ROOT"/assets/wallpapers/*.jpg "$ROOTFS/usr/share/miaou/wallpapers/"
 # --- shell scripts and libraries ---
 install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"

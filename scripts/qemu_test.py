@@ -147,10 +147,11 @@ time.sleep(6)                                           # let the DHCP lease arr
 shot('01-desktop')
 
 def S(n): return (n * scale + 50) // 100
-PH, DOCK_ICON = S(34), S(46)
-n_dock = 7; gap = S(10); dw = n_dock * DOCK_ICON + (n_dock - 1) * gap + S(28); dh = DOCK_ICON + S(20)
-dx, dy = (W - dw) // 2, H - dh - S(10)
-def dock_xy(i): return dx + S(14) + i * (DOCK_ICON + gap) + DOCK_ICON // 2, dy + S(10) + DOCK_ICON // 2
+# Plasma-style layout (mirrors src/desk/desk.c): panel at the bottom, launcher on the left, one task icon per app
+PANEL, TH_H = S(44), S(36)
+AH = H - PANEL                                         # work area height
+def launcher_xy(): return S(24), H - PANEL // 2
+def dock_xy(i): return S(52) + i * S(48) + S(24), H - PANEL // 2
 def opened(app): return f'MIAOUDESK_APP_OPEN {app}' in log_text()
 
 if args.scenario == 'iso':
@@ -164,46 +165,45 @@ elif args.scenario == 'res':
     key('meta_l', 'e'); time.sleep(2.0); shot('01-res-files')
 elif not args.quick:
     # --- start menu via the real mouse
-    click(S(50), PH // 2); time.sleep(0.5); shot('02-menu'); key('esc')
+    click(*launcher_xy()); time.sleep(0.6); shot('02-menu'); key('esc')
     # --- Terminal from the dock, then real commands through the keyboard
     click(*dock_xy(0)); time.sleep(2.0)
     if not opened('terminal'): fail('terminal did not open from the dock')
     typ('uname -a\n'); time.sleep(0.8); typ('ls /\n'); time.sleep(0.8); typ('ping -c 2 10.0.2.2\n'); time.sleep(4); typ('cat /etc/os-release\n'); time.sleep(1.0)
     shot('03-terminal')
     # --- window management with the real pointer: drag, resize from the corner, snap, minimise/restore, maximise
-    th = S(38); tw_ = min(S(820), W - S(20)); tw_h = min(S(520), H - PH - (DOCK_ICON + S(22)) - S(14) - S(10))
-    ah = H - PH - (DOCK_ICON + S(22)) - S(14)
-    wx, wy = (W - tw_) // 2 - S(40), PH + (ah - tw_h) // 2 - S(20)
+    th = TH_H; tw_ = min(S(820), W - S(20)); tw_h = min(S(520), AH - S(10))
+    wx, wy = (W - tw_) // 2 - S(40), max(0, (AH - tw_h) // 2 - S(20))
     drag(wx + tw_ // 2, wy + th // 2, wx + tw_ // 2 - S(120), wy + th // 2 + S(50))          # move
     wx -= S(120); wy += S(50)
     drag(wx + tw_ - 2, wy + tw_h - 2, wx + tw_ + S(60), wy + tw_h + S(30))                    # resize (bottom-right)
     tw_ += S(62); tw_h += S(32)
     shot('03b-window-moved-resized')
     key('meta_l', 'left'); time.sleep(0.8); shot('03c-snapped-left')
-    click(S(22) + S(24), PH + th // 2); time.sleep(0.6)                                        # yellow button: minimise
+    click(W // 2 - S(24) - 2 * S(32), th // 2); time.sleep(0.6)                                # minimise button of the snapped window
     shot('03d-minimised')
     click(*dock_xy(0)); time.sleep(0.8)                                                        # dock icon restores it
-    dblclick(W // 4, PH + th // 2)                                                             # snapped window: double-click restores it
+    dblclick(W // 4, th // 2)                                                                  # snapped window: double-click restores it
     dblclick(W // 4, wy + th // 2); time.sleep(0.6); shot('03e-maximised-by-doubleclick')      # floating window: double-click maximises
-    dblclick(W // 4, PH + th // 2); time.sleep(0.6)                                            # maximised: double-click restores
+    dblclick(W // 4, th // 2); time.sleep(0.6)                                                 # maximised: double-click restores
     # --- Files (Super+E), maximised (Super+Up)
     key('meta_l', 'e'); time.sleep(1.5); key('meta_l', 'up'); time.sleep(0.8)
     if not opened('files'): fail('files did not open (Super+E)')
-    click(100, PH + S(38) + S(34) + 38 * 1 + 10)       # sidebar: "Racine"
+    click(100, TH_H + S(34) + S(38) + S(10))            # sidebar: "Racine"
     time.sleep(0.8); shot('04-files')
     # --- Browser
     click(*dock_xy(2)); time.sleep(1.5); key('meta_l', 'up'); time.sleep(0.8)
     if not opened('browser'): fail('browser did not open')
     shot('05-browser')
-    click(S(300), PH + S(38) + S(26)); typ('file:///etc/os-release\n'); time.sleep(1.5)
+    click(S(300), TH_H + S(26)); typ('file:///etc/os-release\n'); time.sleep(1.5)
     shot('05b-browser-local-page')
     # --- Store: select the first package and install it for real
     click(*dock_xy(3)); time.sleep(1.5); key('meta_l', 'up'); time.sleep(0.8)
     if not opened('store'): fail('store did not open')
-    cy0 = PH + S(38)
+    cy0 = TH_H
     click(S(200), cy0 + S(18) + S(68) + S(20)); time.sleep(0.6)
     shot('06-store-selected')
-    dock_h = DOCK_ICON + S(22); ch_store = (H - PH - dock_h - S(14)) - S(38) - 1
+    ch_store = AH - TH_H - 1
     by = cy0 + ch_store - S(176)
     click(S(18) + S(70), by + S(19)); time.sleep(5)      # Install (real miaou-get run inside the guest)
     shot('07-store-installed')
@@ -213,10 +213,13 @@ elif not args.quick:
     click(*dock_xy(4)); time.sleep(2.0); key('meta_l', 'up'); time.sleep(1.0); shot('09-monitor')
     click(*dock_xy(5)); time.sleep(2.0); key('meta_l', 'up'); time.sleep(1.0); shot('10-network')
     click(*dock_xy(6)); time.sleep(1.5); key('meta_l', 'up'); time.sleep(1.0); shot('11-settings')
-    # --- light theme through the tray toggle, back to desktop
-    tray_theme_x = W - S(10) - (S(36)) - S(4) - S(18)
-    click(tray_theme_x, PH // 2); time.sleep(1.0); shot('12-settings-light')
-    key('meta_l', 'd'); time.sleep(1.0); shot('13-desktop-light')
+    # --- light theme through the desktop context menu (right click), then bring the windows back
+    key('meta_l', 'd'); time.sleep(1.0)
+    cx_, cy_ = W // 2, H // 3
+    click(cx_, cy_, button='right'); time.sleep(0.6); shot('11b-context-menu')
+    click(cx_ + S(40), cy_ + S(6) + 3 * S(32) + S(16)); time.sleep(1.0)      # "Changer de thème"
+    shot('13-desktop-light')
+    key('meta_l', 'd'); time.sleep(1.0); shot('12-settings-light')
 
 end = log_text()
 (serial.parent / (serial.stem + '-final.log') if args.serial_log else build / 'qemu-serial.log').write_text(end)

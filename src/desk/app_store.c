@@ -70,13 +70,13 @@ static void store_draw(Win *w, int x, int y, int cw, int ch) {
         Pkg *p = &s->p[i]; int ry = ly + i * rowh, sel = i == s->sel;
         gfx_rrect(x + pad, ry, cw - pad * 2, rowh - S(8), S(12), sel ? TH.sel : TH.panel, 255);
         gfx_rrect_line(x + pad, ry, cw - pad * 2, rowh - S(8), S(12), sel ? TH.accent : TH.line, 255);
-        Img *ic = img_get(!strncmp(p->name, "miaou-welcome", 13) ? "smile" : !strncmp(p->name, "miaou-fortune", 13) ? "yarn" : "package", S(44)); if (ic) img_draw(ic, x + pad + S(14), ry + S(11), 255);
+        gfx_rrect(x + pad + S(14), ry + S(12), S(44), S(44), S(10), TH.btn, 255); Img *ic = img_get("package", S(24)); if (ic) img_draw(ic, x + pad + S(24), ry + S(22), 255);
         char t[100]; snprintf(t, sizeof t, "%s", p->name); text_draw(F_BOLD, x + pad + S(72), ry + S(10), t, TH.text, S(16));
         text_draw(F_UI, x + pad + S(80) + text_w(F_BOLD, t, S(16)), ry + S(13), p->version, TH.dim, px - 2);
         text_draw_clip(F_UI, x + pad + S(72), ry + S(36), p->desc, TH.dim, px - 1, cw - pad * 2 - S(300));
         const char *st = p->installed ? "Installé" : "Disponible";
         int bw = text_w(F_BOLD, st, S(12)) + S(20), bx = x + cw - pad - S(24) - bw;
-        gfx_rrect(bx, ry + S(20), bw, S(26), S(13), p->installed ? TH.good : TH.dim, 55);
+        gfx_rrect_line(bx, ry + S(20), bw, S(26), S(13), p->installed ? TH.good : TH.line, 255);
         text_draw(F_BOLD, bx + S(10), ry + S(25), st, p->installed ? TH.good : TH.dim, S(12));
         zone(w, x + pad, ry, cw - pad * 2, rowh - S(8), ST_ROW + i);
     }
@@ -86,8 +86,8 @@ static void store_draw(Win *w, int x, int y, int cw, int ch) {
     int busy = s->job && !s->job->done;
     if (s->sel >= 0 && s->sel < s->n) {
         Pkg *p = &s->p[s->sel];
-        if (!p->installed) ui_button(w, x + pad, by, S(150), S(38), busy ? "En cours…" : "Installer", "package", ST_INSTALL, 1);
-        else { ui_button(w, x + pad, by, S(150), S(38), "Lancer", "paw", ST_RUN, 1); ui_button(w, x + pad + S(160), by, S(150), S(38), "Désinstaller", "trash", ST_REMOVE, 0); }
+        if (!p->installed) ui_button(w, x + pad, by, S(150), S(38), busy ? "En cours…" : "Installer", "install", ST_INSTALL, 1);
+        else { ui_button(w, x + pad, by, S(150), S(38), "Lancer", "run", ST_RUN, 1); ui_button(w, x + pad + S(160), by, S(150), S(38), "Désinstaller", "trash", ST_REMOVE, 0); }
     }
     int lgy = by + S(48), lgh = y + ch - lgy - pad;
     gfx_rrect(x + pad, lgy, cw - pad * 2, lgh, S(10), RGB(17, 13, 32), 255);

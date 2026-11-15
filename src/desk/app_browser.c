@@ -267,7 +267,7 @@ static void br_draw(Win *w, int x, int y, int cw, int ch) {
     ui_button(w, x + S(10), y + S(8), S(38), S(36), NULL, "back", B_BACK, 0);
     ui_button(w, x + S(54), y + S(8), S(38), S(36), NULL, "forward", B_FWD, 0);
     ui_button(w, x + S(98), y + S(8), S(38), S(36), NULL, b->loading ? "stop" : "reload", B_RELOAD, 0);
-    ui_button(w, x + S(142), y + S(8), S(38), S(36), NULL, "home", B_HOME, 0);
+    ui_button(w, x + S(142), y + S(8), S(38), S(36), NULL, "home-m", B_HOME, 0);
     int fx = x + S(192), fw = cw - S(204);
     ui_field(fx, y + S(8), fw, S(36), b->editing ? b->urlbuf : b->url, b->editing, "Adresse ou recherche");
     zone(w, fx, y + S(8), fw, S(36), B_URL);

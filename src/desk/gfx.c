@@ -30,7 +30,7 @@ static struct fb_fix_screeninfo fix;
 static u32 *scene;
 static int cx0, cy0, cx1, cy1;
 
-int ui_auto_scale(int w) { return w < 1100 ? 100 : w < 1500 ? 115 : w < 1900 ? 130 : w < 2500 ? 160 : 200; }
+int ui_auto_scale(int w) { return w < 1700 ? 100 : w < 2500 ? 150 : 200; }   /* whole steps keep the 4px grid */
 
 int gfx_open(void) {
     fbfd = open("/dev/fb0", O_RDWR);
@@ -325,7 +325,7 @@ Img *img_load_file(const char *path) {
     free(d);
     if (!px) return NULL;
     Img *im = malloc(sizeof *im);
-    im->w = w; im->h = h; im->px = malloc((size_t)w * h * 4);
+    im->w = w; im->h = h; im->mono = 0; im->px = malloc((size_t)w * h * 4);
     for (int i = 0; i < w * h; i++) {
         unsigned r = px[i * 4], g = px[i * 4 + 1], b = px[i * 4 + 2], a = px[i * 4 + 3];
         im->px[i] = (a << 24) | (r << 16) | (g << 8) | b;
@@ -337,6 +337,7 @@ void img_free(Img *im) { if (im) { free(im->px); free(im); } }
 
 Img *img_scale(Img *src, int w, int h) {
     Img *o = malloc(sizeof *o);
+    o->mono = src->mono;
     o->w = w; o->h = h; o->px = malloc((size_t)w * h * 4);
     for (int y = 0; y < h; y++)
         for (int x = 0; x < w; x++) {
@@ -356,16 +357,59 @@ Img *img_scale(Img *src, int w, int h) {
     return o;
 }
 
-void img_draw(Img *im, int x, int y, int a) {
+void img_draw_tint(Img *im, int x, int y, int a, u32 color) {
     if (!im) return;
     for (int j = 0; j < im->h; j++) {
         int yy = y + j; if (yy < cy0 || yy >= cy1) continue;
         for (int i = 0; i < im->w; i++) {
             u32 p = im->px[(size_t)j * im->w + i];
             int pa = (int)(p >> 24) * a / 255;
-            if (pa) put(x + i, yy, p & 0xffffff, pa);
+            if (pa) put(x + i, yy, im->mono ? color : (p & 0xffffff), pa);
         }
     }
+}
+void img_draw(Img *im, int x, int y, int a) { img_draw_tint(im, x, y, a, TH.text); }
+
+/* anti-aliased thick line (distance to segment) */
+void gfx_line(float x0, float y0, float x1, float y1, float width, u32 c, int a) {
+    float minx = fminf(x0, x1) - width, maxx = fmaxf(x0, x1) + width, miny = fminf(y0, y1) - width, maxy = fmaxf(y0, y1) + width;
+    float dx = x1 - x0, dy = y1 - y0, l2 = dx * dx + dy * dy, hw = width / 2;
+    for (int y = (int)miny; y <= (int)maxy + 1; y++)
+        for (int x = (int)minx; x <= (int)maxx + 1; x++) {
+            float px = (float)x + 0.5f - x0, py = (float)y + 0.5f - y0;
+            float t = l2 > 0 ? (px * dx + py * dy) / l2 : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+            float ex = px - t * dx, ey = py - t * dy, d = sqrtf(ex * ex + ey * ey);
+            float v = hw - d + 0.5f; if (v <= 0) continue; if (v > 1) v = 1;
+            put(x, y, c, (int)(v * a));
+        }
+}
+/* anti-aliased triangle */
+void gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c, int a) {
+    float minx = fminf(x0, fminf(x1, x2)), maxx = fmaxf(x0, fmaxf(x1, x2)), miny = fminf(y0, fminf(y1, y2)), maxy = fmaxf(y0, fmaxf(y1, y2));
+    float area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    if (area == 0) return;
+    float sgn = area > 0 ? 1.0f : -1.0f;
+    float ex[3] = { x1 - x0, x2 - x1, x0 - x2 }, ey[3] = { y1 - y0, y2 - y1, y0 - y2 }, ox[3] = { x0, x1, x2 }, oy[3] = { y0, y1, y2 };
+    for (int y = (int)miny - 1; y <= (int)maxy + 1; y++)
+        for (int x = (int)minx - 1; x <= (int)maxx + 1; x++) {
+            float cov = 1.0f;
+            for (int k = 0; k < 3; k++) {
+                float len = sqrtf(ex[k] * ex[k] + ey[k] * ey[k]); if (len == 0) continue;
+                float d = sgn * (ex[k] * ((float)y + 0.5f - oy[k]) - ey[k] * ((float)x + 0.5f - ox[k])) / len;   /* signed distance, >0 inside */
+                float v = d + 0.5f; if (v < cov) cov = v;
+            }
+            if (cov > 0) put(x, y, c, (int)((cov > 1 ? 1 : cov) * a));
+        }
+}
+/* MiaouOS logo: a cat head (round face, two ears, eyes) */
+void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
+    float s = (float)size, cx = x + s / 2, cy = y + s * 0.58f;
+    gfx_tri(x + s * 0.10f, y + s * 0.50f, x + s * 0.14f, y + s * 0.04f, x + s * 0.46f, y + s * 0.26f, color, 255);
+    gfx_tri(x + s * 0.90f, y + s * 0.50f, x + s * 0.86f, y + s * 0.04f, x + s * 0.54f, y + s * 0.26f, color, 255);
+    gfx_circle((int)cx, (int)cy, (int)(s * 0.40f), color, 255);
+    gfx_circle((int)(cx - s * 0.16f), (int)(cy - s * 0.04f), (int)(s * 0.065f + 0.5f), eye, 255);
+    gfx_circle((int)(cx + s * 0.16f), (int)(cy - s * 0.04f), (int)(s * 0.065f + 0.5f), eye, 255);
+    gfx_tri(cx - s * 0.05f, cy + s * 0.10f, cx + s * 0.05f, cy + s * 0.10f, cx, cy + s * 0.17f, eye, 255);
 }
 
 #define ICON_CACHE 96
@@ -373,10 +417,12 @@ static struct { char name[24]; int size; Img *im; } icache[ICON_CACHE];
 Img *img_get(const char *name, int size) {
     for (int i = 0; i < ICON_CACHE; i++)
         if (icache[i].im && icache[i].size == size && !strcmp(icache[i].name, name)) return icache[i].im;
-    char path[160];
+    char path[160]; int mono = 0;
     snprintf(path, sizeof path, "%s/icons/%s.png", ASSET_DIR, name);
     Img *src = img_load_file(path);
+    if (!src) { snprintf(path, sizeof path, "%s/icons/mono/%s.png", ASSET_DIR, name); src = img_load_file(path); mono = 1; }
     if (!src) return NULL;
+    src->mono = mono;
     Img *sc = img_scale(src, size, size);
     img_free(src);
     for (int i = 0; i < ICON_CACHE; i++)
@@ -396,7 +442,7 @@ Img *wallpaper(int night) {
     /* cover: crop the source to the screen aspect, then scale */
     int cw = src->w, ch = src->h;
     if ((long)cw * SH > (long)ch * SW) cw = (int)((long)ch * SW / SH); else ch = (int)((long)cw * SH / SW);
-    Img crop = { cw, ch, malloc((size_t)cw * ch * 4) };
+    Img crop = { cw, ch, malloc((size_t)cw * ch * 4), 0 };
     int ox = (src->w - cw) / 2, oy = (src->h - ch) / 2;
     for (int y = 0; y < ch; y++) memcpy(&crop.px[(size_t)y * cw], &src->px[(size_t)(y + oy) * src->w + ox], (size_t)cw * 4);
     img_free(src);
