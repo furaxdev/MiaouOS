@@ -752,7 +752,7 @@ static int task_w(void) { return S(48); }
 static int task_x0(void) { return S(8) + S(48) + S(4); }
 enum { Z_SHOWDESK = 7 };
 static void draw_panel(void) {
-    int ph = S(44), py = SH - panel_gap() - ph, X0 = S(8), X1 = SW - S(8), pr = S(14);      /* floating, rounded like Plasma 6 */
+    int ph = S(44), py = SH - panel_gap() - ph, X0 = S(8), X1 = SW - S(8), pr = S(7);      /* floating, rounded like Plasma 6 */
     gfx_shadow(X0, py, X1 - X0, ph, pr, S(16), 120);
     gfx_rrect(X0, py, X1 - X0, ph, pr, TH.panel, 246);
     gfx_rrect_line(X0, py, X1 - X0, ph, pr, TH.line, 255);
