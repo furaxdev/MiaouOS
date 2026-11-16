@@ -19,6 +19,8 @@ int  gfx_open(void);                       /* open fb, allocate buffers; 0 = ok 
 void gfx_close(void);
 void gfx_clip(int x, int y, int w, int h);
 void gfx_unclip(void);
+void gfx_set_base_clip(int x, int y, int w, int h);   /* partial redraw: clip everything to this rectangle */
+void gfx_clear_base_clip(void);
 void gfx_fill(int x, int y, int w, int h, u32 c, int a);       /* a: 0..255 */
 void gfx_rrect(int x, int y, int w, int h, int r, u32 c, int a);
 void gfx_rrect_line(int x, int y, int w, int h, int r, u32 c, int a);
@@ -132,7 +134,8 @@ enum { CK_ARROW, CK_HAND, CK_IBEAM, CK_MOVE, CK_RSH, CK_RSV, CK_RSD1, CK_RSD2, C
 void cursor_hint(int x, int y, int w, int h, int kind);   /* during draw: this rectangle shows another cursor */
 void zone(Win *w, int x, int y, int cw, int ch, int id);
 int  hover(int x, int y, int w, int h);          /* pointer inside rect? */
-void dirty(void);
+void dirty(void);                                  /* redraw the whole screen */
+void dirty_rect(int x, int y, int w, int h);        /* redraw only this region (much cheaper on slow CPUs) */
 void toast(const char *fmt, ...);
 Win *open_app(const char *id);
 Win *open_app_arg(const char *id, const char *arg);

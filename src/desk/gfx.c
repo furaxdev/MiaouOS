@@ -56,11 +56,15 @@ void gfx_close(void) {
     fbmem = NULL; fbfd = -1;
 }
 
+static int bx0, by0, bx1 = 1 << 20, by1 = 1 << 20;     /* outer clip for partial redraws: gfx_clip/gfx_unclip never leave it */
 void gfx_clip(int x, int y, int w, int h) {
     cx0 = x < 0 ? 0 : x; cy0 = y < 0 ? 0 : y;
     cx1 = x + w > SW ? SW : x + w; cy1 = y + h > SH ? SH : y + h;
+    if (cx0 < bx0) cx0 = bx0; if (cy0 < by0) cy0 = by0; if (cx1 > bx1) cx1 = bx1; if (cy1 > by1) cy1 = by1;
 }
-void gfx_unclip(void) { cx0 = 0; cy0 = 0; cx1 = SW; cy1 = SH; }
+void gfx_unclip(void) { cx0 = bx0 > 0 ? bx0 : 0; cy0 = by0 > 0 ? by0 : 0; cx1 = bx1 < SW ? bx1 : SW; cy1 = by1 < SH ? by1 : SH; }
+void gfx_set_base_clip(int x, int y, int w, int h) { bx0 = x; by0 = y; bx1 = x + w; by1 = y + h; gfx_unclip(); }
+void gfx_clear_base_clip(void) { bx0 = by0 = 0; bx1 = by1 = 1 << 20; gfx_unclip(); }
 
 static inline u32 mixa(u32 d, u32 s, int a) {   /* a: 0..255 */
     if (a >= 255) return s;

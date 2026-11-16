@@ -57,7 +57,14 @@ static float ease(float t) { t = t < 0 ? 0 : t > 1 ? 1 : t; return 1.0f - (1.0f 
 static const u32 ACCENTS[4][2] = { {RGB(232, 163, 61), RGB(154, 91, 0)}, {RGB(240, 120, 106), RGB(180, 65, 47)},
                                    {RGB(111, 160, 240), RGB(47, 99, 194)}, {RGB(141, 184, 148), RGB(60, 122, 74)} };
 
-void dirty(void) { need_draw = 1; }
+static int dr_full = 1, dr_any, dr_x0, dr_y0, dr_x1, dr_y1;
+void dirty(void) { need_draw = 1; dr_full = 1; }
+void dirty_rect(int x, int y, int w, int h) {
+    need_draw = 1; if (x < 0) { w += x; x = 0; } if (y < 0) { h += y; y = 0; } if (w <= 0 || h <= 0) return;
+    if (!dr_any) { dr_x0 = x; dr_y0 = y; dr_x1 = x + w; dr_y1 = y + h; dr_any = 1; return; }
+    if (x < dr_x0) dr_x0 = x; if (y < dr_y0) dr_y0 = y; if (x + w > dr_x1) dr_x1 = x + w; if (y + h > dr_y1) dr_y1 = y + h;
+}
+static void dirty_win(Win *w) { dirty_rect(w->x - S(24), w->y - S(24), w->w + S(48), w->h + S(48)); }
 static char *clipbuf; static size_t cliplen;
 void clip_set(const char *s, size_t n) { free(clipbuf); clipbuf = malloc(n + 1); memcpy(clipbuf, s, n); clipbuf[n] = 0; cliplen = n; }
 const char *clip_get(size_t *n) { if (n) *n = cliplen; return clipbuf; }
@@ -1426,13 +1433,13 @@ static void mouse_moved(int x, int y) {
         w->x = nx; w->y = ny; w->w = nw; w->h = nh; w->t_geo = 0;
         dirty(); return;
     }
-    if (grab_win && win_index(grab_win) >= 0 && grab_win->app->mouse) { grab_win->app->mouse(grab_win, M_MOVE, x - grab_win->cx, y - grab_win->cy, left_down); dirty(); return; }
+    if (grab_win && win_index(grab_win) >= 0 && grab_win->app->mouse) { { Win *gw = grab_win; gw->app->mouse(gw, M_MOVE, x - gw->cx, y - gw->cy, left_down); dirty_win(gw); } return; }
 }
 static void mouse_wheel(int dir) {
     if (locked) return;
     if (menu_open) { menu_scroll += dir; if (menu_scroll < 0) menu_scroll = 0; dirty(); return; }
     Win *w = win_at(mouse_x, mouse_y);
-    if (w && w->app->mouse && mouse_y > w->y + title_h()) { w->app->mouse(w, M_WHEEL, mouse_x - w->cx, mouse_y - w->cy, dir); dirty(); }
+    if (w && w->app->mouse && mouse_y > w->y + title_h()) { w->app->mouse(w, M_WHEEL, mouse_x - w->cx, mouse_y - w->cy, dir); dirty_win(w); }
 }
 
 static void menu_key(int key) {
@@ -1478,7 +1485,7 @@ static void dispatch_key(int key, int m) {
     if (menu_open) { menu_key(key); return; }
     if (ctx_open) { if (key == K_ESC) set_ctx(0); return; }
     if (!focus_win) { desktop_key(key, m); return; }
-    if (focus_win && focus_win->app->key) { focus_win->app->key(focus_win, key, m); dirty(); }
+    if (focus_win && focus_win->app->key) { Win *kw = focus_win; kw->app->key(kw, key, m); if (win_index(kw) >= 0) dirty_win(kw); else dirty(); }
 }
 
 static void take_screenshot(void) {
@@ -1611,7 +1618,7 @@ static int tick_all(void) {
     int redraw = 0;
     for (int i = 0; i < nwins; i++) {
         Win *w = wins[i];
-        if (w->app->tick && w->app->tick(w)) redraw = 1;
+        if (w->app->tick && w->app->tick(w)) { if (w->ws == cur_ws && !w->minimized && !w->dying) dirty_win(w); else redraw = 1; }
     }
     for (int i = nwins - 1; i >= 0; i--) if (wins[i]->closing) { close_win(wins[i]); redraw = 1; }
     return redraw;
@@ -1723,9 +1730,9 @@ int main(int argc, char **argv) {
             { static long scan; if (t - scan > 2000) { scan = t; ditems_rebuild(0); } }
             if (t - last_net > 3000) { last_net = t; net_refresh(); }
             for (int i = 0; i < 4; i++) if (toasts[i].until && toasts[i].until < t + 40 && toasts[i].until > t - 80) dirty();
-            static int clk; time_t nw = time(NULL); if ((int)(nw / 60) != clk) { clk = (int)(nw / 60); dirty(); }
+            static int clk; time_t nw = time(NULL); if ((int)(nw / 60) != clk) { clk = (int)(nw / 60); if (locked) dirty(); else dirty_rect(0, SH - panel_h(), SW, panel_h()); }
             /* caret blink for focused text fields */
-            static long blink; if (t / 500 != blink) { blink = t / 500; if (want_blink) dirty(); }
+            static long blink; if (t / 500 != blink) { blink = t / 500; if (want_blink) { if (focus_win && !locked) dirty_win(focus_win); else dirty(); } }
         }
         if (cur_kind == CK_BUSY && !need_draw) { static long bt2; if (t - bt2 > 80) { bt2 = t; cursor_erase(); cursor_draw(); } }
         if (move_pending) {
@@ -1737,10 +1744,13 @@ int main(int argc, char **argv) {
         if (need_draw && t - last_draw >= (animating ? 8 : 14)) {
             need_draw = 0; last_draw = t;
             long p0 = now_ms();
+            int partial = !dr_full && dr_any;
+            if (partial) { int rx0 = dr_x0 < 0 ? 0 : dr_x0, ry0 = dr_y0 < 0 ? 0 : dr_y0, rx1 = dr_x1 > SW ? SW : dr_x1, ry1 = dr_y1 > SH ? SH : dr_y1; if (rx1 <= rx0 || ry1 <= ry0) partial = 0; else { gfx_set_base_clip(rx0, ry0, rx1 - rx0, ry1 - ry0); dr_x0 = rx0; dr_y0 = ry0; dr_x1 = rx1; dr_y1 = ry1; } }
+            dr_full = 0; dr_any = 0;
             draw_scene();
             hot_sig = hot_compute();
             long p1 = now_ms();
-            present_all();
+            if (partial) { gfx_clear_base_clip(); gfx_present_rect(dr_x0, dr_y0, dr_x1 - dr_x0, dr_y1 - dr_y0); cursor_draw(); } else present_all();
             long p2 = now_ms();
             { static long pa, pb, pn, pt0; pa += p1 - p0; pb += p2 - p1; pn++; if (!pt0) pt0 = p0;
               if (p2 - pt0 >= 4000) { slog("MIAOUDESK_PERF frames=%ld draw=%ldms present=%ldms avg_draw=%.1f avg_present=%.1f fps=%.1f", pn, pa, pb, (double)pa / (double)pn, (double)pb / (double)pn, (double)pn * 1000.0 / (double)(p2 - pt0)); pa = pb = pn = 0; pt0 = p2; } }
