@@ -353,7 +353,7 @@ def night_scene(seed=7):
     # city glow on the horizon
     hdr += np.exp(-((Y - hor) / 0.11) ** 2)[..., None] * col(0.20, 0.115, 0.060) * 0.30 * (1 + 0.4 * drift[..., None])
     hdr += np.exp(-((Y - hor + 0.02) / 0.04) ** 2)[..., None] * col(0.30, 0.16, 0.07) * 0.10
-    fogc = col(0.040, 0.062, 0.100)
+    fogc = col(0.065, 0.095, 0.150)
     for top_lo, top_hi, wmin, wmax, depth, pitch, p_lit in (
             (0.66, 0.735, 14, 46, 0.95, 5.0, 0.28), (0.64, 0.760, 18, 58, 0.62, 6.5, 0.34),
             (0.67, 0.800, 26, 84, 0.34, 8.5, 0.40), (0.74, 0.835, 40, 120, 0.10, 11.0, 0.40)):
@@ -372,7 +372,7 @@ def night_scene(seed=7):
     foreground(hdr, lights, rng, True, (moon_x, moon_y), col(0.55, 0.68, 1.0))
     ghosts = (moon_x, moon_y, [(0.45, 38, (0.4, 0.6, 1.0), 0.020), (0.72, 70, (0.7, 0.9, 1.0), 0.012),
                                 (1.25, 52, (1.0, 0.8, 0.6), 0.014), (1.6, 120, (0.5, 0.7, 1.0), 0.008)])
-    return post(hdr, lights, rng, 1.25, 0.42, 0.009, (moon_x, moon_y, 0.55, 1.0, col(0.45, 0.60, 1.0)), ghosts)
+    return post(hdr, lights, rng, 2.3, 0.30, 0.009, (moon_x, moon_y, 0.55, 1.0, col(0.45, 0.60, 1.0)), ghosts)
 
 
 def day_scene(seed=11):
