@@ -15,7 +15,7 @@ ap.add_argument('--quick', action='store_true') # boot + one screenshot only
 ap.add_argument('--iso', default='')              # boot this ISO (BIOS/GRUB) instead of kernel+initrd
 ap.add_argument('--serial-log', default='')
 ap.add_argument('--kbd', default='us')          # guest keyboard layout (miaou.kbd=)
-ap.add_argument('--scenario', default='full', choices=['full', 'fr', 'res', 'iso', 'desk'])
+ap.add_argument('--scenario', default='full', choices=['full', 'fr', 'res', 'iso', 'desk', 'tools', 'apps2', 'session'])
 args = ap.parse_args()
 root = Path(args.root); build = root / 'build'; shots = build / 'screenshots'
 shots.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ for p in (qmp_path, serial):
     try: p.unlink()
     except FileNotFoundError: pass
 append = 'console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 miaou.kbd=%s miaou.theme=%s' % (args.kbd, args.theme)
-if args.scenario in ('fr', 'res', 'desk') or args.quick: append += ' miaou.autologin=miaou'
+if args.scenario in ('fr', 'res', 'desk', 'tools', 'apps2') or args.quick: append += ' miaou.autologin=miaou'
 if args.res: append += ' video=Virtual-1:' + args.res
 boot = ['-machine', 'pc', '-cdrom', args.iso, '-boot', 'd'] if args.iso else ['-machine', 'q35', '-kernel', kernel, '-initrd', initrd, '-append', append]
 cmd = ['qemu-system-x86_64', *boot, '-m', '768M', '-smp', '2', '-accel', 'kvm', '-accel', 'tcg',
@@ -91,9 +91,11 @@ def shot(name):
 def key(*names, hold=0.05):
     qmp('send-key', keys=[{'type': 'qcode', 'data': n} for n in names], **{'hold-time': int(hold * 1000)}); time.sleep(0.25)
 CHARS = {':': None, ' ': 'spc', '-': 'minus', '=': 'equal', '/': 'slash', '.': 'dot', ',': 'comma', ';': 'semicolon', "'": 'apostrophe', '\n': 'ret'}
+SHIFTED = {'*': '8', '(': '9', ')': '0', '+': 'equal', '_': 'minus', '!': '1', '?': 'slash', '@': '2', '#': '3', '%': '5'}
 def typ(text):
     for c in text:
-        if c == ':': key('shift', 'semicolon')
+        if c in SHIFTED: key('shift', SHIFTED[c])
+        elif c == ':': key('shift', 'semicolon')
         elif c in CHARS: key(CHARS[c])
         elif c.isupper(): key('shift', c.lower())
         elif c.isalnum(): key(c)
@@ -152,6 +154,8 @@ def wait_marker(m, timeout=30):
     fail('serial marker not seen: ' + m)
 if args.scenario == 'iso':
     wait_marker('MIAOUDESK_LOGIN_SCREEN'); time.sleep(3); shot('01-login-screen')
+elif args.scenario == 'session':
+    pass
 elif args.scenario == 'full' and not args.quick:
     wait_marker('MIAOUDESK_LOGIN_SCREEN'); time.sleep(2.5); shot('00-login')
     typ('oops\n'); time.sleep(0.3); shot('00b-login-wrong-password'); wait_marker('MIAOUDESK_LOGIN_FAIL'); time.sleep(0.8)
@@ -179,7 +183,66 @@ def desktop_selection():
     key('esc'); time.sleep(0.4)
     click(S(600), S(500)); time.sleep(0.4)                     # click on empty desktop clears the selection
 
-if args.scenario == 'desk':
+def tools_scenario():
+    def launch(name):                     # real launcher: open the menu, type to search, Enter
+        click(*launcher_xy()); time.sleep(0.5); typ(name); time.sleep(0.4); key('ret'); time.sleep(1.5)
+    launch('notes'); typ('Bonjour MiaouOS\nCeci est un vrai editeur.'); time.sleep(0.5); key('ctrl', 's'); time.sleep(1.0); shot('20-notes')
+    launch('calc'); typ('12*(3+4)'); time.sleep(0.6); shot('21-calculator')
+    key('ret'); time.sleep(0.5); shot('21b-calculator-result')
+    launch('horloge'); time.sleep(1.0); shot('22-clock')
+    key('meta_l', 'd'); time.sleep(1.0)
+    dblclick(S(16) + S(150), S(16) + S(96) * 0 + S(45))                    # desktop item 'Bienvenue.txt' (second column, first row)
+    time.sleep(1.5); shot('23-open-text-from-desktop')
+    key('meta_l', 'd'); time.sleep(0.8)
+    dblclick(S(16) + S(150), S(16) + S(96) + S(45)); time.sleep(2.0); shot('24-viewer-from-desktop')
+    # run dialog (Super+Space): calculator result, then the control centre (click the clock), workspaces, window menu, PrintScreen
+    key('meta_l', 'spc'); time.sleep(0.6); typ('2+3*4'); time.sleep(0.6); shot('25-run-dialog'); key('esc'); time.sleep(0.5)
+    click(W - S(40), H - PANEL // 2); time.sleep(0.7); shot('26-control-centre'); click(W - S(40), H - PANEL // 2); time.sleep(0.5)
+    key('ctrl', 'alt', 'right'); time.sleep(0.8); shot('27-workspace-2'); key('ctrl', 'alt', 'left'); time.sleep(0.6)
+    launch('notes'); time.sleep(0.8)
+    off_ = 4 * S(28)                                   # cascade offset: this is the 5th window
+    right_x, right_y = (W - S(860)) // 2 + off_ - S(40) + S(300), max(0, (AH - S(600)) // 2 + off_ - S(20)) + S(18)
+    click(right_x, right_y, button='right'); time.sleep(0.6); shot('28-window-menu'); key('esc'); time.sleep(0.4)
+    key('print'); time.sleep(1.0)
+    if 'MIAOUDESK_SCREENSHOT' not in log_text(): fail('PrintScreen did not write a screenshot')
+
+def apps2_scenario():
+    def launch(name):
+        click(*launcher_xy()); time.sleep(0.5); typ(name); time.sleep(0.4); key('ret'); time.sleep(1.5)
+    # --- Files: copy a folder from the desktop folder to Images, trash it, look into the trash
+    key('meta_l', 'e'); time.sleep(1.5); key('meta_l', 'up'); time.sleep(0.8)
+    def place(i): click(100, TH_H + S(34) + i * S(38) + S(17)); time.sleep(0.6)
+    def row(i): click(500, TH_H + S(52) + S(28) + i * S(32) + S(16)); time.sleep(0.4)
+    place(1); row(0); shot('30-files-desktop-folder'); key('ctrl', 'c'); time.sleep(0.3)
+    place(3); key('ctrl', 'v'); time.sleep(1.0); shot('31-files-pasted')
+    row(0); key('delete'); time.sleep(1.0); place(4); time.sleep(0.8); shot('32-files-trash')
+    # --- Monitor: disks and system log
+    launch('moniteur'); key('meta_l', 'up'); time.sleep(1.0)
+    click(S(16) + S(118) + S(55), TH_H + S(16) * 2 + S(150) + S(17)); time.sleep(0.8); shot('33-monitor-disks')
+    click(S(16) + 2 * S(118) + S(55), TH_H + S(16) * 2 + S(150) + S(17)); time.sleep(2.0); shot('34-monitor-journal')
+    # --- Settings: accounts and shortcuts
+    launch('param'); key('meta_l', 'up'); time.sleep(1.0)
+    click(100, TH_H + S(10) + 4 * S(40) + S(18)); time.sleep(0.8); shot('35-settings-accounts')
+    click(100, TH_H + S(10) + 6 * S(40) + S(18)); time.sleep(0.8); shot('36-settings-shortcuts')
+    click(100, TH_H + S(10) + 3 * S(40) + S(18)); time.sleep(0.8); shot('37-settings-datetime')
+    # --- Terminal: selection copy + paste
+    key('meta_l', 't'); time.sleep(2.0); typ('echo copie-moi\n'); time.sleep(0.8)
+    shot('38-terminal-before-select')
+
+def session_scenario():
+    wait_marker('MIAOUDESK_LOGIN_SCREEN'); time.sleep(2.0)
+    key('tab'); time.sleep(0.6); shot('40-login-guest'); key('ret'); wait_marker('MIAOUDESK_LOGIN_OK invite'); time.sleep(3.0); shot('41-guest-desktop')
+    key('meta_l', 't'); time.sleep(2.5); typ('id\n'); time.sleep(0.8); typ('pwd\n'); time.sleep(0.8); typ('ls /root\n'); time.sleep(0.8); shot('42-guest-terminal')
+    key('meta_l', 'l'); time.sleep(1.8); shot('43-lock-screen')
+    key('tab'); time.sleep(0.5); typ('miaou\n'); wait_marker('MIAOUDESK_LOGIN_OK miaou'); time.sleep(3.0); shot('44-switched-to-miaou')
+
+if args.scenario == 'apps2':
+    apps2_scenario()
+elif args.scenario == 'session':
+    session_scenario()
+elif args.scenario == 'tools':
+    tools_scenario()
+elif args.scenario == 'desk':
     desktop_selection()
 elif args.scenario == 'iso':
     time.sleep(3)

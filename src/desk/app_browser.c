@@ -247,6 +247,7 @@ static void br_key(Win *w, int key, int mods) {
     }
     if (b->scroll < 0) b->scroll = 0;
 }
+static void br_open_arg(Win *w, const char *url) { navigate(w->st, url, 1); }
 static int br_tick(Win *w) {
     Br *b = w->st;
     if (!b->job) return 0;
@@ -283,4 +284,4 @@ static void br_draw(Win *w, int x, int y, int cw, int ch) {
     text_draw_clip(F_UI, x + S(12), y + ch - S(22), st, TH.dim, S(12), cw - S(24));
 }
 
-App app_browser = { "browser", "Navigateur", "web", "Navigateur texte (http, https, file)", 980, 640, br_create, br_destroy, br_draw, br_action, br_mouse, br_key, br_tick };
+App app_browser = { "browser", "Navigateur", "web", "Navigateur texte (http, https, file)", 980, 640, br_create, br_destroy, br_draw, br_action, br_mouse, br_key, br_tick, br_open_arg };

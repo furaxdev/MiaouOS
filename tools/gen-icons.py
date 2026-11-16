@@ -15,6 +15,12 @@ ICONS = {   # MiaouDesk name -> Lucide name
  'rename': 'pencil', 'trash': 'trash', 'search': 'search', 'power': 'power', 'reboot': 'rotate-ccw', 'console': 'square-terminal', 'up': 'arrow-up',
  'plug': 'wifi-off', 'signal': 'wifi', 'keyboard-m': 'keyboard', 'ok': 'check', 'install': 'download', 'run': 'play', 'kill': 'x', 'list': 'list',
  'down': 'arrow-down', 'info-m': 'info',
+ 'copy': 'copy', 'cut': 'scissors', 'paste': 'clipboard-paste', 'eye': 'eye', 'archive': 'archive', 'sort': 'arrow-down-a-z', 'calculator': 'calculator',
+ 'clock': 'clock', 'timer': 'timer', 'notes': 'notebook-pen', 'camera': 'camera', 'star': 'star', 'calendar': 'calendar', 'zoom-in': 'zoom-in', 'zoom-out': 'zoom-out',
+ 'fit': 'maximize', 'battery': 'battery-medium', 'lock': 'lock', 'user': 'user', 'users': 'users', 'plus': 'plus', 'minus': 'minus', 'pin': 'pin', 'bell': 'bell',
+ 'bell-off': 'bell-off', 'sliders': 'sliders-horizontal', 'pause': 'pause', 'history': 'clock-arrow-up', 'save': 'save', 'folder-open': 'folder-open', 'undo': 'undo-2',
+ 'logout': 'log-out', 'shield': 'shield', 'cpu': 'cpu', 'journal': 'scroll-text', 'rotate-l': 'rotate-ccw', 'rotate-r': 'rotate-cw', 'chevron-left': 'chevron-left',
+ 'chevron-right': 'chevron-right', 'x-circle': 'circle-x', 'workspace': 'layout-grid', 'pin-off': 'pin-off', 'download': 'download', 'refresh': 'refresh-cw', 'edit': 'pencil',
 }
 missing = []
 for name, lucide in ICONS.items():

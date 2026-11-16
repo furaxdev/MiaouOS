@@ -8,7 +8,8 @@ MiaouOS est une distribution Linux indépendante construite depuis les sources a
 
 - Noyau Linux 6.12.30 et BusyBox 1.37.0 compilés depuis les sources.
 - Initramfs et processus `/init` propres à MiaouOS.
-- MiaouDesk : bureau graphique « OS des chats » en C sur framebuffer (fenêtres, dock, panneau, thèmes nuit/jour, Neko) avec des applications réelles : Terminal, Fichiers, Navigateur texte, Boutique, Moniteur, Réseau, Paramètres. Voir `docs/GRAPHICAL-DESKTOP.md`. Repli automatique vers la console.
+- MiaouDesk : bureau graphique en C sur framebuffer, style Plasma : écran de connexion avec comptes, animations, sélection sur le bureau, bureaux virtuels, centre de contrôle, « Exécuter », et des applications réelles (Terminal, Fichiers, Notes, Calculatrice, Visionneuse, Horloge, Navigateur texte, Boutique, Moniteur, Réseau, Paramètres). Voir `docs/GRAPHICAL-DESKTOP.md`. Repli automatique vers la console.
+- Compte de démonstration : utilisateur `miaou`, mot de passe `miaou` (à changer dans Paramètres → Comptes) ; compte `invite` sans mot de passe.
 - Lanceur console `miaou-apps`.
 - Outils console `miaou-files`, `miaou-monitor`, `miaou-network`.
 - Miaou Store (`miaou`) et interface scriptable `miaou-get`, avec moteur partagé et format local `.miaou`.

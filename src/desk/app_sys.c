@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/statvfs.h>
 #include <sys/utsname.h>
 #include <time.h>
 #include <unistd.h>
@@ -20,101 +21,6 @@ static long mono_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t
 static void card(int x, int y, int w, int h) { gfx_rrect(x, y, w, h, S(8), TH.panel, 255); gfx_rrect_line(x, y, w, h, S(8), TH.line, 255); }
 static void label(int x, int y, const char *s, u32 c, int px, int bold) { text_draw(bold ? F_BOLD : F_UI, x, y, s, c, px); }
 
-/* ================================================================== Settings */
-typedef struct { int tab; char test[64]; Img *thumb[2]; int thumb_w; char msg[160]; } Set;
-enum { T_APP = 1, T_DSP, T_KBD, T_SYS, S_THEME_D = 20, S_THEME_L, S_ACC = 30, S_UI = 60, S_KFR = 70, S_KUS, S_FOCUS };
-static const int UIS[] = { 0, 100, 125, 150, 200 };
-static void *set_create(Win *w) { (void)w; return calloc(1, sizeof(Set)); }
-static void set_destroy(Win *w) { Set *s = w->st; img_free(s->thumb[0]); img_free(s->thumb[1]); free(s); }
-
-static void apply_ui_scale(int v) {
-    char b[16]; if (v) snprintf(b, sizeof b, "%d", v); else snprintf(b, sizeof b, "auto"); cfg_set("ui", b);
-    UIP = v ? v : ui_auto_scale(SW);
-    desk_mode_changed();
-}
-static void set_action(Win *w, int id, int mx, int my, int btn) {
-    Set *s = w->st; (void)mx; (void)my; (void)btn;
-    if (id >= T_APP && id <= T_SYS) { s->tab = id - T_APP; return; }
-    if (id == S_THEME_D || id == S_THEME_L) { int want = id == S_THEME_D; if (want != theme_dark) { theme_dark = want; theme_apply(); cfg_set("theme", want ? "dark" : "light"); toast(want ? "Thème : Nuit féline" : "Thème : Jour pastel"); } }
-    else if (id >= S_ACC && id < S_ACC + 4) { accent_idx = id - S_ACC; theme_apply(); char b[8]; snprintf(b, sizeof b, "%d", accent_idx); cfg_set("accent", b); }
-    else if (id >= S_UI && id < S_UI + 6) apply_ui_scale(UIS[id - S_UI]);
-    else if (id == S_KFR) { kbd_set_layout(1); toast("Clavier : Français (AZERTY)"); }
-    else if (id == S_KUS) { kbd_set_layout(0); toast("Clavier : English (QWERTY)"); }
-}
-static void set_key(Win *w, int key, int mods) {
-    Set *s = w->st; (void)mods;
-    if (s->tab != 2) return;
-    int n = (int)strlen(s->test);
-    if (key == K_BS) { if (n) { while (n > 0 && (s->test[n - 1] & 0xc0) == 0x80) n--; if (n) n--; s->test[n] = 0; } }
-    else if (key >= 32 && key < 0x200000 && n < 56) { n += utf8_put(s->test + n, key); s->test[n] = 0; }
-}
-static void set_draw(Win *w, int x, int y, int cw, int ch) {
-    Set *s = w->st; int side = S(190), px = S(14);
-    gfx_fill(x, y, side, ch, TH.panel, 255); gfx_vline(x + side, y, ch, TH.line, 255);
-    const char *tabs[] = { "Apparence", "Affichage", "Clavier", "Système" };
-    const char *icons[] = { "palette", "display", "keyboard", "info" };
-    for (int i = 0; i < 4; i++) ui_tab(w, x + S(8), y + S(12) + i * S(42), side - S(16), S(38), tabs[i], icons[i], T_APP + i, s->tab == i);
-    int cx = x + side + S(26), cy = y + S(22);
-    if (s->tab == 0) {
-        label(cx, cy, "Apparence", TH.text, S(22), 1);
-        label(cx, cy + S(34), "Choisissez l'ambiance de votre bureau.", TH.dim, px, 0);
-        int tw = S(220), th = S(124);
-        for (int i = 0; i < 2; i++) {
-            if (!s->thumb[i] || s->thumb_w != SW) { img_free(s->thumb[i]); Img *wp = wallpaper(i == 0); s->thumb[i] = wp ? img_scale(wp, tw, th) : NULL; if (i == 1) s->thumb_w = SW; }
-            int tx = cx + i * (tw + S(24)), ty = cy + S(76), sel = (i == 0) == theme_dark;
-            gfx_rrect(tx - S(4), ty - S(4), tw + S(8), th + S(54), S(14), sel ? TH.accent : TH.line, sel ? 255 : 120);
-            gfx_rrect(tx, ty, tw, th + S(46), S(11), TH.win, 255);
-            if (s->thumb[i]) { gfx_clip(tx, ty, tw, th); gfx_rrect(tx, ty, tw, th + S(12), S(11), TH.win, 255); img_draw(s->thumb[i], tx, ty, 255); gfx_unclip(); }
-            label(tx + S(14), ty + th + S(14), i == 0 ? "Nuit féline" : "Jour pastel", TH.text, px, 1);
-            zone(w, tx, ty, tw, th + S(46), i == 0 ? S_THEME_D : S_THEME_L);
-        }
-        int ay = cy + S(76) + th + S(70);
-        label(cx, ay, "Couleur d'accent", TH.text, S(16), 1);
-        extern const unsigned ACCENT_RGB[4];
-        for (int i = 0; i < 4; i++) {
-            int ax = cx + i * S(70);
-            gfx_circle(ax + S(22), ay + S(52), S(22), ACCENT_RGB[i], 255);
-            if (i == accent_idx) gfx_circle(ax + S(22), ay + S(52), S(7), RGB(20, 20, 21), 255);
-            zone(w, ax, ay + S(30), S(44), S(44), S_ACC + i);
-        }
-    } else if (s->tab == 1) {
-        label(cx, cy, "Affichage", TH.text, S(22), 1);
-        char info[120]; snprintf(info, sizeof info, "Écran actuel : %d × %d  ·  échelle de l'interface : %d %%", SW, SH, UIP);
-        label(cx, cy + S(34), info, TH.dim, px, 0);
-        label(cx, cy + S(76), "Résolution de l'écran", TH.text, S(16), 1);
-        label(cx, cy + S(104), "Elle est fixée au démarrage par le pilote graphique (paramètre noyau video=LARGEUR×HAUTEUR).", TH.dim, S(13), 0);
-        label(cx, cy + S(126), "Le changement à chaud n'est pas pris en charge par ce pilote : MiaouOS ne le simule pas.", TH.dim, S(13), 0);
-        int bx = cx, by = cy + S(178);
-        label(cx, by, "Taille de l'interface", TH.text, S(16), 1);
-        bx = cx; by += S(30);
-        const char *un[] = { "Auto", "100 %", "125 %", "150 %", "200 %" };
-        for (int i = 0; i < 5; i++) { ui_button(w, bx, by, S(84), S(38), un[i], NULL, S_UI + i, 0); bx += S(94); }
-        if (s->msg[0]) { gfx_clip(cx, by + S(56), cw - side - S(52), S(70)); label(cx, by + S(58), s->msg, TH.warn, S(13), 0); gfx_unclip(); }
-    } else if (s->tab == 2) {
-        label(cx, cy, "Clavier", TH.text, S(22), 1);
-        label(cx, cy + S(34), "Disposition des touches (appliquée tout de suite, sans redémarrage).", TH.dim, px, 0);
-        ui_button(w, cx, cy + S(76), S(230), S(44), "Français (AZERTY)", NULL, S_KFR, kbd_layout() == 1);
-        ui_button(w, cx + S(244), cy + S(76), S(230), S(44), "English (QWERTY)", NULL, S_KUS, kbd_layout() == 0);
-        label(cx, cy + S(148), "Zone de test", TH.text, S(16), 1);
-        ui_field(cx, cy + S(180), cw - side - S(52), S(44), s->test, 1, "Tapez ici pour tester votre clavier…");
-        label(cx, cy + S(244), "Raccourcis : Super = menu · Alt+Tab = changer de fenêtre · Alt+F4 = fermer · Ctrl+Alt+T = terminal", TH.dim, S(13), 0);
-        label(cx, cy + S(268), "Super+←/→ = moitié d'écran · Super+↑ = agrandir · Super+↓ = réduire · Super+D = bureau", TH.dim, S(13), 0);
-    } else {
-        label(cx, cy, "Système", TH.text, S(22), 1);
-        struct utsname u; uname(&u);
-        char up[64] = "?", mem[96] = "?"; double upt = 0; FILE *f = fopen("/proc/uptime", "r"); if (f) { if (fscanf(f, "%lf", &upt) == 1) snprintf(up, sizeof up, "%d min %02d s", (int)upt / 60, (int)upt % 60); fclose(f); }
-        unsigned long mt = 0, ma = 0; f = fopen("/proc/meminfo", "r"); if (f) { char l[128]; while (fgets(l, sizeof l, f)) { sscanf(l, "MemTotal: %lu", &mt); sscanf(l, "MemAvailable: %lu", &ma); } fclose(f); }
-        snprintf(mem, sizeof mem, "%lu Mo libres sur %lu Mo", ma / 1024, mt / 1024);
-        const char *rows[][2] = { { "Système", "MiaouOS 0.2" }, { "Noyau", u.release }, { "Architecture", u.machine }, { "Nom d'hôte", u.nodename }, { "Temps de fonctionnement", up }, { "Mémoire", mem } };
-        int ry = cy + S(54);
-        card(cx, ry - S(8), cw - side - S(52), 6 * S(40) + S(12));
-        for (int i = 0; i < 6; i++) { label(cx + S(18), ry + i * S(40) + S(6), rows[i][0], TH.dim, px, 0); label(cx + S(230), ry + i * S(40) + S(6), rows[i][1], TH.text, px, 1); }
-    }
-}
-static int set_tick(Win *w) { Set *s = w->st; return s->tab == 3 ? (mono_ms() / 1000 != 0 && (mono_ms() % 1000) < 40) : 0; }
-/* accent colours exported for the settings swatches */
-const unsigned ACCENT_RGB[4] = { RGB(232, 163, 61), RGB(240, 120, 106), RGB(111, 160, 240), RGB(141, 184, 148) };
-
 /* ================================================================== Task monitor */
 typedef struct { int pid; char name[20]; char state; unsigned long rss_kb, ticks, last_ticks; float cpu; } Proc;
 typedef struct {
@@ -122,10 +28,11 @@ typedef struct {
     unsigned long mt, ma, load_ms; char load[32];
     Proc p[256]; int np, sel_pid, scroll, sortk; unsigned long total_delta;
     long last;
+    int view, logscroll; Job *job;
 } Mon;
-enum { MN_KILL = 1, MN_FORCE, MN_SORT_CPU, MN_SORT_MEM, MN_SORT_PID, MN_ROW = 1000 };
+enum { MN_KILL = 1, MN_FORCE, MN_SORT_CPU, MN_SORT_MEM, MN_SORT_PID, MN_TAB0 = 10, MN_LOGREFRESH = 14, MN_ROW = 1000 };
 static void *mon_create(Win *w) { (void)w; Mon *m = calloc(1, sizeof *m); m->sortk = 0; return m; }
-static void mon_destroy(Win *w) { free(w->st); }
+static void mon_destroy(Win *w) { Mon *m = w->st; job_free(m->job); free(m); }
 static int cmp_cpu(const void *a, const void *b) { const Proc *x = a, *y = b; return (y->cpu > x->cpu) - (y->cpu < x->cpu); }
 static int cmp_mem(const void *a, const void *b) { const Proc *x = a, *y = b; return (y->rss_kb > x->rss_kb) - (y->rss_kb < x->rss_kb); }
 static int cmp_pid(const void *a, const void *b) { const Proc *x = a, *y = b; return x->pid - y->pid; }
@@ -158,8 +65,11 @@ static void mon_refresh(Mon *m) {
     if (d) closedir(d);
     qsort(m->p, (size_t)m->np, sizeof(Proc), m->sortk == 0 ? cmp_cpu : m->sortk == 1 ? cmp_mem : cmp_pid);
 }
+static void mon_start_log(Mon *m) { job_free(m->job); m->job = job_start("dmesg 2>&1 | tail -n 250"); m->logscroll = 0; }
 static void mon_action(Win *w, int id, int mx, int my, int btn) {
     Mon *m = w->st; (void)mx; (void)my; (void)btn;
+    if (id >= MN_TAB0 && id < MN_TAB0 + 3) { m->view = id - MN_TAB0; if (m->view == 2 && !m->job) mon_start_log(m); return; }
+    if (id == MN_LOGREFRESH) { mon_start_log(m); return; }
     if (id >= MN_ROW) { m->sel_pid = m->p[id - MN_ROW].pid; return; }
     if (id == MN_SORT_CPU) m->sortk = 0; else if (id == MN_SORT_MEM) m->sortk = 1; else if (id == MN_SORT_PID) m->sortk = 2;
     else if ((id == MN_KILL || id == MN_FORCE) && m->sel_pid) {
@@ -168,11 +78,43 @@ static void mon_action(Win *w, int id, int mx, int my, int btn) {
         m->last = 0;
     }
 }
-static void mon_mouse(Win *w, int type, int x, int y, int arg) { Mon *m = w->st; (void)x; (void)y; if (type == M_WHEEL) { m->scroll -= arg * 2; if (m->scroll < 0) m->scroll = 0; } }
+static void mon_mouse(Win *w, int type, int x, int y, int arg) { Mon *m = w->st; (void)x; (void)y; if (type == M_WHEEL) { if (m->view == 2) { m->logscroll -= arg * 3; if (m->logscroll < 0) m->logscroll = 0; } else { m->scroll -= arg * 2; if (m->scroll < 0) m->scroll = 0; } } }
 static int mon_tick(Win *w) {
     Mon *m = w->st; long t = mono_ms();
+    if (m->job && job_poll(m->job)) { return 1; }
     if (t - m->last < 1000) return 0;
     m->last = t; mon_refresh(m); return 1;
+}
+static void mon_extra(Mon *m, Win *w, int x, int y, int cw, int ch, int ty, int pad) {
+    int ly = ty + S(46), lh = y + ch - ly - pad;
+    card(x + pad, ly - S(6), cw - pad * 2, lh + S(12));
+    if (m->view == 1) {                                           /* disks: mounted file systems with usage */
+        FILE *f = fopen("/proc/mounts", "r"); char l[300]; int row = 0;
+        label(x + pad + S(18), ly, "Point de montage", TH.dim, S(12), 1); label(x + cw - pad - S(300), ly, "Utilisation", TH.dim, S(12), 1);
+        while (f && fgets(l, sizeof l, f) && row < 12) {
+            char dev[100], mnt[160], fs[40]; if (sscanf(l, "%99s %159s %39s", dev, mnt, fs) != 3) continue;
+            if (!strcmp(fs, "proc") || !strcmp(fs, "sysfs") || !strcmp(fs, "devpts") || !strncmp(fs, "cgroup", 6) || !strcmp(fs, "mqueue") || !strcmp(fs, "securityfs") || !strcmp(fs, "debugfs") || !strcmp(fs, "tracefs") || !strcmp(fs, "configfs") || !strcmp(fs, "fusectl") || !strcmp(fs, "bpf")) continue;
+            struct statvfs sv; if (statvfs(mnt, &sv) != 0 || !sv.f_blocks) continue;
+            unsigned long long tot = (unsigned long long)sv.f_blocks * sv.f_frsize, fr = (unsigned long long)sv.f_bavail * sv.f_frsize, used = tot - fr;
+            int ry = ly + S(26) + row * S(48); char a[32], b[32], t[120]; human_size(fr, a, sizeof a); human_size(tot, b, sizeof b);
+            label(x + pad + S(18), ry, mnt, TH.text, S(14), 1); snprintf(t, sizeof t, "%s  ·  %s", fs, dev); label(x + pad + S(18), ry + S(20), t, TH.dim, S(11), 0);
+            ui_progress(x + cw - pad - S(300), ry + S(6), S(160), S(10), (int)(100 * used / tot), TH.accent);
+            snprintf(t, sizeof t, "%s libres sur %s", a, b); label(x + cw - pad - S(300), ry + S(22), t, TH.dim, S(11), 0);
+            row++;
+        }
+        if (f) fclose(f);
+        return;
+    }
+    ui_button(w, x + cw - pad - S(130), ty, S(120), S(32), "Actualiser", "refresh", MN_LOGREFRESH, 0);
+    gfx_clip(x + pad + S(8), ly - S(2), cw - pad * 2 - S(16), lh);
+    if (m->job) {
+        int lines = 0; for (const char *c = m->job->buf; *c; c++) if (*c == '\n') lines++;
+        int vis = (lh - S(8)) / S(16); if (m->logscroll > lines - vis) m->logscroll = lines - vis; if (m->logscroll < 0) m->logscroll = 0;
+        int start = lines > vis ? lines - vis - m->logscroll : 0, ln = 0, yy = ly;
+        const char *p = m->job->buf;
+        while (*p && yy < ly + lh) { const char *e = strchr(p, '\n'); size_t k = e ? (size_t)(e - p) : strlen(p); if (ln >= start) { char b[200]; if (k > 190) k = 190; memcpy(b, p, k); b[k] = 0; text_draw(F_MONO, x + pad + S(14), yy, b, TH.text, S(12)); yy += S(16); } ln++; if (!e) break; p = e + 1; }
+    }
+    gfx_unclip();
 }
 static void mon_draw(Win *w, int x, int y, int cw, int ch) {
     Mon *m = w->st; int px = S(14), pad = S(16);
@@ -196,7 +138,8 @@ static void mon_draw(Win *w, int x, int y, int cw, int ch) {
     snprintf(mb, sizeof mb, "Charge moyenne : %s  ·  %d processus", m->load, m->np); label(x + pad * 2 + half + S(16), y + pad + S(118), mb, TH.dim, px - 1, 0);
 
     int ty = y + pad * 2 + ch1;
-    label(x + pad, ty + S(8), "Processus", TH.text, S(16), 1);
+    { static const char *VT[3] = { "Processus", "Disques", "Journal" }; for (int i = 0; i < 3; i++) ui_tab(w, x + pad + i * S(118), ty, S(110), S(34), VT[i], i == 0 ? "cpu" : i == 1 ? "drive" : "journal", MN_TAB0 + i, m->view == i); }
+    if (m->view != 0) { mon_extra(m, w, x, y, cw, ch, ty, pad); return; }
     ui_button(w, x + cw - pad - S(120) * 2 - S(8) - S(60) * 3 - S(24), ty, S(60), S(32), "CPU", NULL, MN_SORT_CPU, m->sortk == 0);
     ui_button(w, x + cw - pad - S(120) * 2 - S(8) - S(60) * 2 - S(16), ty, S(60), S(32), "Mém.", NULL, MN_SORT_MEM, m->sortk == 1);
     ui_button(w, x + cw - pad - S(120) * 2 - S(8) - S(60) - S(8), ty, S(60), S(32), "PID", NULL, MN_SORT_PID, m->sortk == 2);
@@ -326,7 +269,6 @@ static void about_draw(Win *w, int x, int y, int cw, int ch) {
     for (int i = 0; i < 4; i++) { tw = text_w(F_UI, lines[i], S(13)); text_draw(F_UI, x + (cw - tw) / 2, y + S(240) + i * S(24), lines[i], TH.dim, S(13)); }
 }
 
-App app_settings = { "settings", "Paramètres", "settings", "Thème, affichage, clavier", 860, 560, set_create, set_destroy, set_draw, set_action, NULL, set_key, set_tick };
 App app_monitor = { "monitor", "Moniteur système", "monitor", "Processus, CPU et mémoire", 860, 600, mon_create, mon_destroy, mon_draw, mon_action, mon_mouse, NULL, mon_tick };
 App app_network = { "network", "Réseau", "network", "Interfaces, DHCP et diagnostics", 780, 620, net_create, net_destroy, net_draw, net_action, NULL, NULL, net_tick };
 App app_about = { "about", "À propos de MiaouOS", "info", "Version et crédits", 620, 440, NULL, NULL, about_draw, NULL, NULL, NULL, NULL };

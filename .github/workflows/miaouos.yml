@@ -70,6 +70,9 @@ jobs:
             build/qemu-serial.log
             build/serial-fr-final.log
             build/serial-1024-final.log
+            build/serial-tools-final.log
+            build/serial-apps2-final.log
+            build/serial-session-final.log
             build/screenshots/*.png
           if-no-files-found: warn
           retention-days: 14

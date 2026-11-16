@@ -25,7 +25,9 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 - [x] Gestionnaire de fenêtres framebuffer : déplacement, redimensionnement 8 bords, aimantation, minimisation, maximisation, fermeture, Alt+Tab.
 - [x] Panneau de type Plasma, lanceur avec recherche, icônes de bureau, menu contextuel, notifications, thèmes clair/sombre, accent, échelle automatique.
 - [x] Entrées : clavier AZERTY/QWERTY (codes bruts), souris/tablette/tactile via evdev.
-- [x] Terminal (pty), Fichiers, Navigateur texte, Boutique (miaou-get), Moniteur, Réseau (DHCP), Paramètres.
+- [x] Terminal (pty), Fichiers, Notes, Calculatrice, Visionneuse, Horloge, Navigateur texte, Boutique (miaou-get), Moniteur, Réseau (DHCP), Paramètres.
+- [x] Écran de connexion, comptes (SHA-256 salé), verrouillage, bureaux virtuels, centre de contrôle, « Exécuter », animations.
+- [ ] Stockage persistant (comptes, fichiers, réglages) et chiffrement.
 - [ ] Serveur graphique/compositeur et sessions.
 - [ ] Navigateur avec moteur web (CSS, JavaScript, images), HTTPS vérifié.
 - [ ] Presse-papiers, glisser-déposer, accessibilité, son.

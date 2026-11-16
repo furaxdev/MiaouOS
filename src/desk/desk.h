@@ -198,7 +198,13 @@ void slog_marker2(const char *m, const char *arg);
 int login_fade_alpha(void);
 void desk_close_all(void);
 
-extern App app_terminal, app_files, app_settings, app_monitor, app_network, app_store, app_browser, app_about;
+extern App app_terminal, app_files, app_settings, app_monitor, app_network, app_store, app_browser, app_about, app_notes, app_calc, app_viewer, app_clock;
+void clip_set(const char *s, size_t n);
+const char *clip_get(size_t *n);
+void wallpaper_set_custom(const char *path);
+void clock_timers_tick(void);
+int miaou_calc(const char *src, char *out, size_t n);
+int input_mods(void);
 extern App *APPS[];
 extern int NAPPS;
 #endif

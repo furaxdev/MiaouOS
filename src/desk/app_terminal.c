@@ -27,6 +27,7 @@ typedef struct {
     unsigned char fg, bg, attr;
     u32 pending_utf8; int utf8_left;
     int saved_r, saved_c;
+    int sa_line, sa_col, sb_line, sb_col, has_sel, selecting;     /* mouse selection (absolute line index, column) */
 } Term;
 
 static const u32 PAL[16] = {
@@ -211,6 +212,7 @@ static void term_destroy(Win *w) {
     free(t->lines); free(t);
 }
 
+static void sel_norm(Term *t, int *l0, int *c0, int *l1, int *c1);
 static void term_draw(Win *w, int x, int y, int cw, int ch) {
     Term *t = w->st;
     gfx_fill(x, y, cw, ch, TBG, 255);
@@ -227,6 +229,7 @@ static void term_draw(Win *w, int x, int y, int cw, int ch) {
             if ((cell->attr & 1) && cell->fg < 8) fg = PAL[cell->fg + 8];
             if (cell->attr & 2) { u32 tmp = fg; fg = cell->bg == 255 ? TBG : bg; bg = cell->bg == 255 && cell->fg == 255 ? TFG : tmp; if (cell->fg == 255 && cell->bg == 255) { fg = TBG; bg = TFG; } }
             if (cell->bg != 255 || (cell->attr & 2)) gfx_fill(ox + c * t->cw, py, t->cw, t->chh, bg, 255);
+            if (t->has_sel) { int l0, c0, l1, c1; sel_norm(t, &l0, &c0, &l1, &c1); int insel = (li > l0 || (li == l0 && c >= c0)) && (li < l1 || (li == l1 && c <= c1)); if (insel) gfx_fill(ox + c * t->cw, py, t->cw, t->chh, TH.accent, 110); }
             if (cell->cp > ' ') glyph_draw(F_MONO, ox + c * t->cw, py, (int)cell->cp, fg, t->px);
         }
     }
@@ -248,12 +251,32 @@ static void term_draw(Win *w, int x, int y, int cw, int ch) {
     }
 }
 
+static void sel_norm(Term *t, int *l0, int *c0, int *l1, int *c1) {
+    if (t->sa_line < t->sb_line || (t->sa_line == t->sb_line && t->sa_col <= t->sb_col)) { *l0 = t->sa_line; *c0 = t->sa_col; *l1 = t->sb_line; *c1 = t->sb_col; }
+    else { *l0 = t->sb_line; *c0 = t->sb_col; *l1 = t->sa_line; *c1 = t->sa_col; }
+}
+static void sel_copy(Term *t) {
+    if (!t->has_sel) return;
+    int l0, c0, l1, c1; sel_norm(t, &l0, &c0, &l1, &c1);
+    char *out = malloc((size_t)(l1 - l0 + 1) * (size_t)(MAXCOLS * 4 + 2) + 1); size_t k = 0;
+    for (int l = l0; l <= l1 && l < t->total; l++) {
+        int a = l == l0 ? c0 : 0, b = l == l1 ? c1 : t->cols - 1; if (b >= t->cols) b = t->cols - 1;
+        int last = b; while (last >= a && t->lines[l][last].cp <= ' ') last--;
+        for (int c = a; c <= last; c++) k += (size_t)utf8_put(out + k, (int)(t->lines[l][c].cp ? t->lines[l][c].cp : ' '));
+        if (l < l1) out[k++] = '\n';
+    }
+    out[k] = 0; clip_set(out, k); free(out); toast("Copié dans le presse-papiers");
+}
 static void term_send(Term *t, const char *s, size_t n) { if (t->alive && write(t->master, s, n) < 0) {} }
 static void term_key(Win *w, int key, int mods) {
     Term *t = w->st;
     char b[16]; int n = 0;
     if (mods & MOD_SHIFT && (key == K_PGUP || key == K_PGDN)) { t->voff += key == K_PGUP ? t->rows / 2 : -t->rows / 2; if (t->voff < 0) t->voff = 0; if (t->voff > t->total - t->rows) t->voff = t->total - t->rows; return; }
     t->voff = 0;
+    if ((mods & MOD_CTRL) && (mods & MOD_SHIFT) && (key == 'c' || key == 'C')) { sel_copy(t); return; }
+    if ((mods & MOD_CTRL) && (mods & MOD_SHIFT) && (key == 'v' || key == 'V')) { size_t k; const char *c = clip_get(&k); if (c && k) term_send(t, c, k); return; }
+    if ((mods & MOD_CTRL) && (key == '+' || key == '=' || key == '-')) { int np = t->px + (key == '-' ? -1 : 1); if (np >= S(10) && np <= S(28)) { t->px = np; t->cw = font_cell_w(F_MONO, np); t->chh = (int)(np * 1.32f); } return; }
+    t->has_sel = 0;
     switch (key) {
     case K_ENTER: b[n++] = '\r'; break; case K_BS: b[n++] = 127; break; case K_TAB: b[n++] = '\t'; break; case K_ESC: b[n++] = 27; break;
     case K_UP: memcpy(b, "\033[A", 3); n = 3; break; case K_DOWN: memcpy(b, "\033[B", 3); n = 3; break;
@@ -270,9 +293,17 @@ static void term_key(Win *w, int key, int mods) {
     term_send(t, b, (size_t)n);
 }
 static void term_mouse(Win *w, int type, int x, int y, int arg) {
-    (void)x; (void)y; Term *t = w->st;
+    Term *t = w->st;
+    int first = t->total - t->rows - t->voff; if (first < 0) first = 0;
+    int line = first + (y - S(7)) / (t->chh ? t->chh : 16), col = (x - S(10)) / (t->cw ? t->cw : 8);
+    if (line < 0) line = 0; if (line >= t->total) line = t->total - 1; if (col < 0) col = 0; if (col >= t->cols) col = t->cols - 1;
+    if (type == M_DOWN) { t->sa_line = t->sb_line = line; t->sa_col = t->sb_col = col; t->selecting = 1; t->has_sel = 0; }
+    else if (type == M_MOVE && t->selecting) { t->sb_line = line; t->sb_col = col; t->has_sel = (t->sa_line != t->sb_line || t->sa_col != t->sb_col); }
+    else if (type == M_UP) t->selecting = 0;
+    else if (type == M_RDOWN) { size_t k; const char *c = clip_get(&k); if (c && k) term_send(t, c, k); }
     if (type == M_WHEEL) { t->voff += -arg * 3; if (t->voff < 0) t->voff = 0; if (t->voff > t->total - t->rows) t->voff = t->total - t->rows; }
 }
+static void term_open_arg(Win *w, const char *cmd) { Term *t = w->st; if (t->alive) { term_send(t, cmd, strlen(cmd)); term_send(t, "\r", 1); } }
 static int term_tick(Win *w) {
     Term *t = w->st; int ch = 0; unsigned char buf[4096];
     if (t->master >= 0) {
@@ -289,4 +320,4 @@ static int term_tick(Win *w) {
     return ch;
 }
 
-App app_terminal = { "terminal", "Terminal", "terminal", "Un vrai shell dans une fenêtre", 820, 520, term_create, term_destroy, term_draw, NULL, term_mouse, term_key, term_tick };
+App app_terminal = { "terminal", "Terminal", "terminal", "Un vrai shell dans une fenêtre", 820, 520, term_create, term_destroy, term_draw, NULL, term_mouse, term_key, term_tick, term_open_arg };

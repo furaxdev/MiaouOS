@@ -509,12 +509,18 @@ int gfx_save_png(const char *path) {
     return ok ? 0 : -1;
 }
 static Img *wall[2];
+static char custom_wall[320];
+void wallpaper_set_custom(const char *path) {
+    if (!strcmp(custom_wall, path ? path : "")) return;
+    snprintf(custom_wall, sizeof custom_wall, "%s", path ? path : "");
+    for (int k = 0; k < 2; k++) { img_free(wall[k]); wall[k] = NULL; img_free(wall_blur[k]); wall_blur[k] = NULL; }
+}
 Img *wallpaper(int night) {
     int k = night ? 1 : 0;
     if (wall[k] && wall[k]->w == SW && wall[k]->h == SH) return wall[k];
     img_free(wall[k]); wall[k] = NULL;
-    char path[160];
-    snprintf(path, sizeof path, "%s/wallpapers/%s.jpg", ASSET_DIR, night ? "night" : "day");
+    char path[330];
+    if (custom_wall[0]) snprintf(path, sizeof path, "%s", custom_wall); else snprintf(path, sizeof path, "%s/wallpapers/%s.jpg", ASSET_DIR, night ? "night" : "day");
     Img *src = img_load_file(path);
     if (!src) return NULL;
     /* cover: crop the source to the screen aspect, then scale */
