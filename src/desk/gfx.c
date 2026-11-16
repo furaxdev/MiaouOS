@@ -462,15 +462,39 @@ void gfx_rtri(float x0, float y0, float x1, float y1, float x2, float y2, float 
             put(x, y, c, (int)(cov * (float)a));
         }
 }
-/* MiaouOS logo: a cat head (round face, two ears, eyes) */
+/* MiaouOS logo: a cat head shaped like the letter M (its two peaks are the ears), closed happy eyes, an omega mouth and ///
+ * blush marks. It is a brand mark: always amber with a slate face, whatever colours the caller passes (kept for the API). */
+static void arc2(float x0, float y0, float cx, float cy, float x1, float y1, float w, u32 c) {
+    float px = x0, py = y0;
+    for (int i = 1; i <= 8; i++) {
+        float t = (float)i / 8.0f, u = 1 - t, qx = u * u * x0 + 2 * u * t * cx + t * t * x1, qy = u * u * y0 + 2 * u * t * cy + t * t * y1;
+        gfx_line(px, py, qx, qy, w, c, 255); px = qx; py = qy;
+    }
+    gfx_circle((int)(x0 + 0.5f), (int)(y0 + 0.5f), (int)(w / 2 + 0.5f), c, 255); gfx_circle((int)(x1 + 0.5f), (int)(y1 + 0.5f), (int)(w / 2 + 0.5f), c, 255);
+}
 void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
-    float s = (float)size, cx = x + s / 2, cy = y + s * 0.58f;
-    gfx_tri(x + s * 0.10f, y + s * 0.50f, x + s * 0.14f, y + s * 0.04f, x + s * 0.46f, y + s * 0.26f, color, 255);
-    gfx_tri(x + s * 0.90f, y + s * 0.50f, x + s * 0.86f, y + s * 0.04f, x + s * 0.54f, y + s * 0.26f, color, 255);
-    gfx_circle((int)cx, (int)cy, (int)(s * 0.40f), color, 255);
-    gfx_circle((int)(cx - s * 0.16f), (int)(cy - s * 0.04f), (int)(s * 0.065f + 0.5f), eye, 255);
-    gfx_circle((int)(cx + s * 0.16f), (int)(cy - s * 0.04f), (int)(s * 0.065f + 0.5f), eye, 255);
-    gfx_tri(cx - s * 0.05f, cy + s * 0.10f, cx + s * 0.05f, cy + s * 0.10f, cx, cy + s * 0.17f, eye, 255);
+    (void)color; (void)eye;
+    const u32 head = RGB(242, 169, 59), ink = RGB(38, 50, 56), blush = RGB(217, 71, 92);
+    float k = (float)size / 150.0f, ox = (float)x - 25.0f * k, oy = (float)y - 40.0f * k + 5.0f * k;
+    #define LX(v) (ox + (v) * k)
+    #define LY(v) (oy + (v) * k)
+    float r = 9.0f * k;
+    gfx_rtri(LX(36), LY(54), LX(100), LY(108), LX(36), LY(108), r, head, 255);       /* left ear */
+    gfx_rtri(LX(164), LY(54), LX(100), LY(108), LX(164), LY(108), r, head, 255);     /* right ear */
+    gfx_rtri(LX(36), LY(108), LX(164), LY(108), LX(36), LY(170), r, head, 255);      /* body = two triangles */
+    gfx_rtri(LX(164), LY(108), LX(164), LY(170), LX(36), LY(170), r, head, 255);
+    float ew = 7.0f * k;
+    arc2(LX(62), LY(130), LX(74), LY(114), LX(86), LY(130), ew, ink);                /* ^ ^ eyes */
+    arc2(LX(114), LY(130), LX(126), LY(114), LX(138), LY(130), ew, ink);
+    float mw = 5.0f * k;
+    arc2(LX(89), LY(146), LX(94.5f), LY(156), LX(100), LY(146), mw, ink);            /* omega mouth */
+    arc2(LX(100), LY(146), LX(105.5f), LY(156), LX(111), LY(146), mw, ink);
+    if (size >= 40) for (int side = 0; side < 2; side++) for (int i = -1; i <= 1; i++) {
+        float cx = side ? 142.0f : 58.0f;
+        gfx_line(LX(cx + i * 9 - 4), LY(157), LX(cx + i * 9 + 4), LY(143), 4.5f * k, blush, 255);
+    }
+    #undef LX
+    #undef LY
 }
 
 #define ICON_CACHE 96
