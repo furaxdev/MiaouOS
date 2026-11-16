@@ -442,6 +442,26 @@ void gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c, 
             if (cov > 0) put(x, y, c, (int)((cov > 1 ? 1 : cov) * a));
         }
 }
+/* Rounded triangle: the triangle (x0,y0)-(x1,y1)-(x2,y2) inflated by rho, anti-aliased through its signed distance field. */
+static float seg_d2(float px, float py, float ax, float ay, float bx, float by) {
+    float dx = bx - ax, dy = by - ay, t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    float qx = px - (ax + dx * t), qy = py - (ay + dy * t); return qx * qx + qy * qy;
+}
+void gfx_rtri(float x0, float y0, float x1, float y1, float x2, float y2, float rho, u32 c, int a) {
+    float minx = fminf(x0, fminf(x1, x2)) - rho, maxx = fmaxf(x0, fmaxf(x1, x2)) + rho, miny = fminf(y0, fminf(y1, y2)) - rho, maxy = fmaxf(y0, fmaxf(y1, y2)) + rho;
+    float area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0), sg = area > 0 ? 1.0f : -1.0f;
+    for (int y = (int)miny - 1; y <= (int)maxy + 1; y++)
+        for (int x = (int)minx - 1; x <= (int)maxx + 1; x++) {
+            float px = (float)x + 0.5f, py = (float)y + 0.5f;
+            float d2 = fminf(seg_d2(px, py, x0, y0, x1, y1), fminf(seg_d2(px, py, x1, y1, x2, y2), seg_d2(px, py, x2, y2, x0, y0)));
+            /* inside test by edge signs */
+            float e0 = sg * ((x1 - x0) * (py - y0) - (y1 - y0) * (px - x0)), e1 = sg * ((x2 - x1) * (py - y1) - (y2 - y1) * (px - x1)), e2 = sg * ((x0 - x2) * (py - y2) - (y0 - y2) * (px - x2));
+            float d = sqrtf(d2); if (e0 >= 0 && e1 >= 0 && e2 >= 0) d = -d;
+            float cov = 0.5f - (d - rho); if (cov <= 0) continue; if (cov > 1) cov = 1;
+            put(x, y, c, (int)(cov * (float)a));
+        }
+}
 /* MiaouOS logo: a cat head (round face, two ears, eyes) */
 void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
     float s = (float)size, cx = x + s / 2, cy = y + s * 0.58f;

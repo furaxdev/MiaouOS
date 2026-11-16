@@ -56,6 +56,7 @@ void  img_draw(Img *im, int x, int y, int a);              /* mono icons use the
 void  img_draw_tint(Img *im, int x, int y, int a, u32 color);
 void  gfx_line(float x0, float y0, float x1, float y1, float width, u32 c, int a);
 void  gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c, int a);
+void  gfx_rtri(float x0, float y0, float x1, float y1, float x2, float y2, float rho, u32 c, int a);   /* rounded triangle */
 void  gfx_logo(int x, int y, int size, u32 color, u32 eye);   /* the MiaouOS cat-head logo */
 void  img_free(Img *im);
 extern int icon_ears;                                       /* 0 none, 1 rounded, 2 pointed cat ears on icons */

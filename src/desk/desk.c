@@ -112,15 +112,9 @@ void icon_tile(const char *name, int x, int y, int sz) {
         for (int side = 0; side < 2; side++) {
             float m = side ? -1.0f : 1.0f, ox = side ? fx + e : fx;                 /* mirror for the right ear */
             #define EX(v) (ox + m * (v) * e)
-            if (icon_ears == 1) {   /* rounded ear: a small triangle thickened by a disc (corners = circles, sides = fat lines) */
-                float rho = 0.07f * e, vx[3] = { EX(0.15f), EX(0.37f), EX(0.15f) }, vy[3] = { fy + 0.10f * e, fy + 0.10f * e, fy - 0.15f * e };
-                gfx_tri(vx[0], vy[0], vx[1], vy[1], vx[2], vy[2], c, 255);
-                for (int k = 0; k < 3; k++) {
-                    int k2 = (k + 1) % 3;
-                    gfx_circle((int)(vx[k] + 0.5f), (int)(vy[k] + 0.5f), (int)(rho + 0.5f), c, 255);
-                    gfx_line(vx[k], vy[k], vx[k2], vy[k2], 2.0f * rho, c, 255);
-                }
-                gfx_tri(EX(0.17f), fy + 0.12f * e, EX(0.33f), fy + 0.12f * e, EX(0.17f), fy - 0.07f * e, inner, 255);
+            if (icon_ears == 1) {   /* rounded ear: one smooth rounded triangle + a softer inner ear */
+                gfx_rtri(EX(0.19f), fy + 0.14f * e, EX(0.44f), fy + 0.14f * e, EX(0.17f), fy - 0.10f * e, 0.085f * e, c, 255);
+                gfx_rtri(EX(0.22f), fy + 0.10f * e, EX(0.34f), fy + 0.10f * e, EX(0.21f), fy - 0.02f * e, 0.035f * e, inner, 255);
             } else {                /* pointed */
                 gfx_tri(EX(0.07f), fy + 0.14f * e, EX(0.46f), fy + 0.14f * e, EX(0.07f), fy - 0.27f * e, c, 255);
                 gfx_tri(EX(0.15f), fy + 0.12f * e, EX(0.33f), fy + 0.12f * e, EX(0.15f), fy - 0.12f * e, inner, 255);
