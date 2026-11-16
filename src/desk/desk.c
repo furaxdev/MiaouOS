@@ -975,7 +975,7 @@ void desk_close_all(void) {
 }
 void apply_config(void) {
     layout = !strcmp(cfg_get("layout", "fr"), "fr");
-    theme_dark = strcmp(cfg_get("theme", "dark"), "light") != 0;
+    theme_dark = strcmp(cfg_get("theme", "light"), "light") != 0;
     accent_idx = atoi(cfg_get("accent", "0")) & 3;
     anim_enabled = strcmp(cfg_get("anim", "1"), "0") != 0;
     lock_minutes = atoi(cfg_get("lock", "10")); dnd = !strcmp(cfg_get("dnd", "0"), "1");

@@ -235,7 +235,7 @@ def cat_mask(rng, cx, by, hgt):
 def foreground(img, lights, rng, night, light_pos, rim_col, cat_x=0.31):
     """Rooftop ledge, vents, antenna and the cat, with rim lighting."""
     y0 = int(H * 0.862); ph = px(26); shape_top = y0 - ph
-    base = col(0.012, 0.016, 0.034) if night else col(0.012, 0.007, 0.008)
+    base = col(0.012, 0.016, 0.034) if night else col(0.075, 0.045, 0.045)
     tex = 1 + 0.11 * fbm(H, W, 0.9, rng) + 0.09 * fbm(H, W, 1.8, rng)      # gravel + stains
     mask = np.zeros((H, W), F32); mask[shape_top:] = 1
     for fx, fw, fh in ((0.60, 0.050, 0.030), (0.69, 0.034, 0.055), (0.86, 0.060, 0.038)):
@@ -248,7 +248,7 @@ def foreground(img, lights, rng, night, light_pos, rim_col, cat_x=0.31):
     up = np.roll(mask, 1, 0); up[0] = 0
     edge = gb(mask * (1 - up), 0.9 * SCM)
     body = base * tex[..., None]
-    slab = col(0.030, 0.042, 0.080) if night else col(0.09, 0.04, 0.02)
+    slab = col(0.030, 0.042, 0.080) if night else col(0.20, 0.11, 0.07)
     body[shape_top:y0] = base * 1.8 + slab
     rim = edge[..., None] * rim_col * (0.55 if night else 0.9)
     img[:] = img * (1 - m2[..., None]) + (body + rim) * m2[..., None]
