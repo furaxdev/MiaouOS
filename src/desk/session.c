@@ -194,7 +194,7 @@ void login_draw(void) {
     nlz = 0; long t = now_ms();
     Img *bg = wallpaper_blur(theme_dark);
     if (bg) gfx_blit(bg->px, bg->w, bg->h, 0, 0); else gfx_fill(0, 0, SW, SH, TH.bg, 255);
-    for (int y = 0; y < SH; y += 2) gfx_fill(0, y, SW, 2, RGB(6, 6, 8), 70 + 90 * y / SH);       /* neutral vignette, darker towards the bottom */
+    for (int y = 0; y < SH; y += 2) gfx_fill(0, y, SW, 2, RGB(6, 6, 8), 0 + 70 * y / SH);       /* neutral vignette, darker towards the bottom */
     u32 white = RGB(246, 246, 248), soft = RGB(196, 196, 204), dim = RGB(150, 150, 158);
     /* brand, top left */
     gfx_logo(S(28), S(24), S(26), white, RGB(40, 40, 46)); text_draw(F_BOLD, S(64), S(25), "MiaouOS", white, S(16)); text_draw(F_UI, S(64), S(46), "Version 0.3", dim, S(11));
