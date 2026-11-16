@@ -770,7 +770,7 @@ static void draw_panel(void) {
         for (int k = 0; k < nwins; k++) if (wins[k]->app == APPS[i] && !wins[k]->dying) { running = 1; if (wins[k] == focus_win && !wins[k]->minimized) active = 1; }
         int hot = hover(x, py, tw, ph); if (hot) hovered = oi;
         if (active) gfx_rrect(x + S(2), py + S(5), tw - S(4), ph - S(10), S(6), TH.btn, 255); else if (hot) gfx_rrect(x + S(2), py + S(5), tw - S(4), ph - S(10), S(6), TH.btn, 160);
-        { int ts = S(30); icon_tile(APPS[i]->icon, x + (tw - ts) / 2, py + (ph - ts) / 2 - S(1), ts); }
+        { int ts = S(30), sv = icon_ears; icon_ears = 0; icon_tile(APPS[i]->icon, x + (tw - ts) / 2, py + (ph - ts) / 2 - S(1), ts); icon_ears = sv; }   /* no ears in the taskbar */
         if (running) gfx_rrect(x + tw / 2 - S(6), py + ph - S(4), S(12), S(2), S(1), active ? TH.accent : TH.dim, 255);
         szone(x, py, tw, ph, Z_DOCK + i);
     }
