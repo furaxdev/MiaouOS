@@ -159,7 +159,7 @@ int js_dispatch(Page *p, Node *target, const char *type, const char *key) {
         js_copy(J, N); js_setproperty(J, E, "currentTarget");
         const char *code = n->type == 0 ? wn_attr(n, onattr) : NULL;
         if (code && *code) run_attr(J, n, code, E);
-        if (js_hasproperty(J, N, onattr)) { if (js_iscallable(J, -1)) { js_copy(J, N); js_copy(J, E); if (js_pcall(J, 1)) js_report(J, js_tostring(J, -1)); js_pop(J, 1); } js_pop(J, 1); }
+        if (js_hasproperty(J, N, onattr)) { if (js_iscallable(J, -1)) { js_copy(J, N); js_copy(J, E); if (js_pcall(J, 1)) js_report(J, js_tostring(J, -1)); js_pop(J, 1); } else js_pop(J, 1); }
         if (js_hasproperty(J, N, "__ev")) {
             if (js_hasproperty(J, -1, type)) {
                 int len = js_getlength(J, -1);
