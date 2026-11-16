@@ -489,9 +489,10 @@ void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
     float mw = 5.0f * k;
     arc2(LX(89), LY(146), LX(94.5f), LY(156), LX(100), LY(146), mw, ink);            /* omega mouth */
     arc2(LX(100), LY(146), LX(105.5f), LY(156), LX(111), LY(146), mw, ink);
-    if (size >= 40) for (int side = 0; side < 2; side++) for (int i = -1; i <= 1; i++) {
+    float bw = 4.5f * k; if (bw < 1.3f) bw = 1.3f;                                    /* blush stays visible at small sizes */
+    if (size >= 16) for (int side = 0; side < 2; side++) for (int i = -1; i <= 1; i++) {
         float cx = side ? 142.0f : 58.0f;
-        gfx_line(LX(cx + i * 9 - 4), LY(157), LX(cx + i * 9 + 4), LY(143), 4.5f * k, blush, 255);
+        gfx_line(LX(cx + i * 9 - 4), LY(157), LX(cx + i * 9 + 4), LY(143), bw, blush, 255);
     }
     #undef LX
     #undef LY
