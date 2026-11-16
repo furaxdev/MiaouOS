@@ -71,7 +71,7 @@ static void store_draw(Win *w, int x, int y, int cw, int ch) {
         Pkg *p = &s->p[i]; int ry = ly + i * rowh, sel = i == s->sel;
         gfx_rrect(x + pad, ry, cw - pad * 2, rowh - S(8), S(12), sel ? TH.sel : TH.panel, 255);
         gfx_rrect_line(x + pad, ry, cw - pad * 2, rowh - S(8), S(12), sel ? TH.accent : TH.line, 255);
-        gfx_rrect(x + pad + S(14), ry + S(12), S(44), S(44), S(10), TH.btn, 255); Img *ic = img_get("package", S(24)); if (ic) img_draw(ic, x + pad + S(24), ry + S(22), 255);
+        icon_tile("package", x + pad + S(14), ry + S(12), S(44));
         char t[100]; snprintf(t, sizeof t, "%s", p->name); text_draw(F_BOLD, x + pad + S(72), ry + S(10), t, TH.text, S(16));
         text_draw(F_UI, x + pad + S(80) + text_w(F_BOLD, t, S(16)), ry + S(13), p->version, TH.dim, px - 2);
         text_draw_clip(F_UI, x + pad + S(72), ry + S(36), p->desc, TH.dim, px - 1, cw - pad * 2 - S(300));

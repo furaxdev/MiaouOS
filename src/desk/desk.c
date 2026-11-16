@@ -93,6 +93,26 @@ void theme_apply(void) {
     }
 }
 
+
+/* ---- colourful app icons: a saturated rounded tile with a white line glyph (like a phone launcher) ---- */
+static const struct { const char *n; u32 c; } ICOLS[] = {
+    { "terminal", RGB(43, 138, 62) }, { "files", RGB(245, 159, 0) }, { "web", RGB(34, 139, 230) }, { "store", RGB(255, 122, 24) },
+    { "monitor", RGB(240, 62, 62) }, { "network", RGB(16, 152, 173) }, { "settings", RGB(121, 80, 242) }, { "notes", RGB(112, 170, 20) },
+    { "calculator", RGB(230, 73, 128) }, { "image", RGB(76, 110, 245) }, { "clock", RGB(190, 75, 219) }, { "info", RGB(73, 80, 87) },
+    { "folder", RGB(245, 159, 0) }, { "file", RGB(77, 171, 247) }, { "trash", RGB(134, 142, 150) }, { "home", RGB(51, 154, 240) },
+    { "drive", RGB(134, 142, 150) }, { "package", RGB(32, 201, 151) }, { "search", RGB(34, 139, 230) },
+};
+void icon_tile(const char *name, int x, int y, int sz) {
+    u32 c = RGB(100, 116, 139);
+    for (size_t i = 0; i < sizeof ICOLS / sizeof ICOLS[0]; i++) if (!strcmp(ICOLS[i].n, name)) c = ICOLS[i].c;
+    int r = sz * 30 / 100;
+    gfx_rrect(x, y + 1, sz, sz, r, RGB(0, 0, 0), 38);
+    gfx_rrect(x, y, sz, sz, r, c, 255);
+    gfx_clip(x, y, sz, sz * 45 / 100); gfx_rrect(x, y, sz, sz, r, RGB(255, 255, 255), 46); gfx_unclip();
+    int g = sz * 54 / 100; Img *im = img_get(name, g);
+    if (im) img_draw_tint(im, x + (sz - g) / 2, y + (sz - g) / 2, 255, RGB(255, 255, 255));
+}
+
 /* ================================================================== config */
 static char cfgk[24][24], cfgv[24][64];
 static int ncfg;
@@ -512,13 +532,13 @@ static void draw_window(Win *w) {
     gfx_hline(w->x + 1, w->y + th - 1, w->w - 2, TH.line, 255);
     gfx_rrect_line(w->x, w->y, w->w, w->h, r, TH.line, 255);
     /* title: centred, with the application icon */
-    int px = S(14), tw = text_w(F_BOLD, w->title, px), isz = S(16);
+    int px = S(14), tw = text_w(F_BOLD, w->title, px), isz = S(20);
     Img *ic = img_get(w->app->icon, isz);
     int total = tw + (ic ? isz + S(8) : 0), tx = w->x + (w->w - total) / 2;
     if (tx < w->x + S(12)) tx = w->x + S(12);
     gfx_clip(w->x + S(8), w->y, w->w - S(112), th);
     u32 tc = focus ? TH.text : TH.dim;
-    if (ic) { img_draw_tint(ic, tx, w->y + (th - isz) / 2, 255, tc); tx += isz + S(8); }
+    if (ic) { icon_tile(w->app->icon, tx, w->y + (th - isz) / 2, isz); tx += isz + S(8); }
     text_draw(F_BOLD, tx, w->y + (th - font_line_h(F_BOLD, px)) / 2, w->title, tc, px);
     gfx_unclip();
     /* buttons on the right: minimise, maximise, close */
@@ -636,7 +656,7 @@ static void draw_run(void) {
     for (int i = 0; i < nrres; i++) {
         int ry = y + S(64) + i * rowh, hot = hover(x + S(6), ry, w - S(12), rowh);
         if (i == run_sel || hot) gfx_rrect(x + S(6), ry, w - S(12), rowh - S(2), S(6), i == run_sel ? TH.btn_hot : TH.btn, 255);
-        Img *ic = img_get(rres[i].kind == 0 ? APPS[atoi(rres[i].arg)]->icon : KI[rres[i].kind], S(18)); if (ic) img_draw(ic, x + S(20), ry + (rowh - S(18)) / 2, 255);
+        icon_tile(rres[i].kind == 0 ? APPS[atoi(rres[i].arg)]->icon : KI[rres[i].kind], x + S(16), ry + (rowh - S(26)) / 2, S(26));
         text_draw_clip(F_UI, x + S(52), ry + (rowh - font_line_h(F_UI, S(14))) / 2, rres[i].label, TH.text, S(14), w - S(70));
         szone(x + S(6), ry, w - S(12), rowh, Z_RUN + i);
     }
@@ -719,7 +739,7 @@ static void draw_panel(void) {
     gfx_logo(X0 + S(12), py + (ph - S(24)) / 2, S(24), TH.text, menu_open ? TH.btn : (hover(X0, py, lw, ph) ? TH.btn : TH.panel));
     szone(X0, py, lw, ph, Z_MENU);
     /* task icons: pinned apps, then any other running app; line icons, a short accent bar marks running ones */
-    int order[16], n = 0, tw = task_w(), isz = S(20), hovered = -1;
+    int order[16], n = 0, tw = task_w(), hovered = -1;
     for (int i = 0; i < NPINNED && i < NAPPS; i++) order[n++] = i;
     for (int k = 0; k < nwins && n < 16; k++) { int ai = -1; for (int i = 0; i < NAPPS; i++) if (APPS[i] == wins[k]->app) ai = i; int have = 0; for (int j = 0; j < n; j++) if (order[j] == ai) have = 1; if (ai >= 0 && !have && !wins[k]->dying) order[n++] = ai; }
     for (int oi = 0; oi < n; oi++) {
@@ -727,7 +747,7 @@ static void draw_panel(void) {
         for (int k = 0; k < nwins; k++) if (wins[k]->app == APPS[i] && !wins[k]->dying) { running = 1; if (wins[k] == focus_win && !wins[k]->minimized) active = 1; }
         int hot = hover(x, py, tw, ph); if (hot) hovered = oi;
         if (active) gfx_rrect(x + S(2), py + S(5), tw - S(4), ph - S(10), S(6), TH.btn, 255); else if (hot) gfx_rrect(x + S(2), py + S(5), tw - S(4), ph - S(10), S(6), TH.btn, 160);
-        Img *im = img_get(APPS[i]->icon, isz); if (im) img_draw_tint(im, x + (tw - isz) / 2, py + (ph - isz) / 2 - S(1), 255, running || hot ? TH.text : TH.dim);
+        { int ts = S(30); icon_tile(APPS[i]->icon, x + (tw - ts) / 2, py + (ph - ts) / 2 - S(1), ts); }
         if (running) gfx_rrect(x + tw / 2 - S(6), py + ph - S(4), S(12), S(2), S(1), active ? TH.accent : TH.dim, 255);
         szone(x, py, tw, ph, Z_DOCK + i);
     }
@@ -798,8 +818,7 @@ static void draw_menu(void) {
         App *a = APPS[menu_items[i]];
         int hot = hover(x + S(8), ry, w - S(16), rowh - S(4));
         if (i == menu_sel || hot) { gfx_rrect(x + S(8), ry, w - S(16), rowh - S(4), S(6), i == menu_sel ? TH.btn_hot : TH.btn, 255); }
-        gfx_rrect(x + S(16), ry + S(6), S(36), S(36), S(8), TH.btn, 255); gfx_rrect_line(x + S(16), ry + S(6), S(36), S(36), S(8), TH.line, 255);
-        Img *im = img_get(a->icon, S(20)); if (im) img_draw(im, x + S(24), ry + S(14), 255);
+        icon_tile(a->icon, x + S(16), ry + S(6), S(36));
         text_draw(F_BOLD, x + S(64), ry + S(7), a->title, TH.text, S(14));
         text_draw(F_UI, x + S(64), ry + S(27), a->desc, TH.dim, S(12));
         szone(x + S(8), ry, w - S(16), rowh - S(4), Z_MI + i);
@@ -912,10 +931,9 @@ static void draw_desktop_icons(void) {
         if (dsel[k]) { gfx_rrect(x, y, w, h, S(8), TH.accent, 70); gfx_rrect_line(x, y, w, h, S(8), TH.accent, 255); }
         else if (hot) gfx_rrect(x, y, w, h, S(8), RGB(0, 0, 0), 80);
         int tile = S(48), tx0 = x + (w - tile) / 2, ty0 = y + S(8);
-        gfx_rrect(tx0, ty0, tile, tile, S(12), TH.btn_hot, 215); gfx_rrect_line(tx0, ty0, tile, tile, S(12), TH.line, 255);
-        const char *icon = ditems[k].kind == 0 ? APPS[ditems[k].app]->icon : ditems[k].kind == 3 ? "trash" : ditems[k].kind == 2 ? "folder" :
+                const char *icon = ditems[k].kind == 0 ? APPS[ditems[k].app]->icon : ditems[k].kind == 3 ? "trash" : ditems[k].kind == 2 ? "folder" :
             (has_ext(ditems[k].label, ".png") || has_ext(ditems[k].label, ".jpg") || has_ext(ditems[k].label, ".jpeg")) ? "image" : "file";
-        Img *im = img_get(icon, S(24)); if (im) img_draw(im, tx0 + (tile - S(24)) / 2, ty0 + (tile - S(24)) / 2, 255);
+        icon_tile(icon, tx0, ty0, tile);
         char lab[80]; fit_text(F_UI, ditems[k].label, S(12), w - S(6), lab, sizeof lab);
         int tw = text_w(F_UI, lab, S(12)), tx = x + (w - tw) / 2, ty = y + S(8) + tile + S(8);
         text_draw(F_UI, tx + 1, ty + 1, lab, RGB(0, 0, 0), S(12));
