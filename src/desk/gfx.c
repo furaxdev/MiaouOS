@@ -491,25 +491,25 @@ Img *img_scale_smooth(Img *src, int w, int h) {
     return o;
 }
 static Img *wall_blur[2];
-static void box_blur(Img *im, int r) {            /* separable box blur, running sums, edges clamped */
-    int w = im->w, h = im->h; u32 *tmp = malloc((size_t)w * h * 4);
-    for (int pass = 0; pass < 2; pass++) {
-        u32 *src = pass ? tmp : im->px, *dst = pass ? im->px : tmp;
-        int n = pass ? h : w, m = pass ? w : h, stride_i = pass ? w : 1, stride_o = pass ? 1 : w;
-        for (int o = 0; o < m; o++) {
-            u32 *line_s = src + (size_t)o * stride_o, *line_d = dst + (size_t)o * stride_o;
-            for (int ch = 0; ch <= 16; ch += 8) {
-                long sum = 0; for (int k = -r; k <= r; k++) { int idx = k < 0 ? 0 : k >= n ? n - 1 : k; sum += (line_s[(size_t)idx * stride_i] >> ch) & 255; }
-                for (int i = 0; i < n; i++) {
-                    u32 v = (u32)(sum / (2 * r + 1)); if (ch == 0) line_d[(size_t)i * stride_i] = 0xff000000u;
-                    line_d[(size_t)i * stride_i] |= v << ch;
-                    int add = i + r + 1, rem = i - r; add = add >= n ? n - 1 : add; rem = rem < 0 ? 0 : rem;
-                    sum += ((line_s[(size_t)add * stride_i] >> ch) & 255) - ((line_s[(size_t)rem * stride_i] >> ch) & 255);
-                }
-            }
-        }
+static void blur_1d(const unsigned char *src, unsigned char *dst, int n, int stride, int r) {    /* running-sum box blur of one line, edges clamped */
+    long sum = 0;
+    for (int k = -r; k <= r; k++) { int idx = k < 0 ? 0 : k >= n ? n - 1 : k; sum += src[(size_t)idx * stride]; }
+    for (int i = 0; i < n; i++) {
+        dst[(size_t)i * stride] = (unsigned char)(sum / (2 * r + 1));
+        int add = i + r + 1, rem = i - r; if (add >= n) add = n - 1; if (rem < 0) rem = 0;
+        sum += (long)src[(size_t)add * stride] - (long)src[(size_t)rem * stride];
     }
-    free(tmp);
+}
+static void box_blur(Img *im, int r) {            /* planar per-channel separable blur */
+    int w = im->w, h = im->h; size_t np = (size_t)w * h;
+    unsigned char *pl = malloc(np), *t1 = malloc(np), *t2 = malloc(np);
+    for (int ch = 0; ch <= 16; ch += 8) {
+        for (size_t i = 0; i < np; i++) pl[i] = (unsigned char)(im->px[i] >> ch);
+        for (int y = 0; y < h; y++) blur_1d(pl + (size_t)y * w, t1 + (size_t)y * w, w, 1, r);
+        for (int x = 0; x < w; x++) blur_1d(t1 + x, t2 + x, h, w, r);
+        for (size_t i = 0; i < np; i++) im->px[i] = (im->px[i] & ~(255u << ch)) | ((u32)t2[i] << ch);
+    }
+    free(pl); free(t1); free(t2);
 }
 Img *wallpaper_blur(int night) {          /* smooth gaussian-like blur at 1/6 resolution, cached */
     int k = night ? 1 : 0;
