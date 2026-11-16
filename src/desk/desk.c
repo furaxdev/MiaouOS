@@ -297,7 +297,8 @@ int kbd_caps(void) { return caps; }
 void kbd_set_layout(int fr) { layout = fr ? 1 : 0; cfg_set("layout", fr ? "fr" : "us"); }
 
 /* ================================================================== window manager */
-static int panel_h(void) { return S(44); }          /* Plasma-style panel at the bottom */
+static int panel_gap(void) { return S(10); }        /* floating panel: gap under it */
+static int panel_h(void) { return S(44) + S(10); }          /* Plasma-style panel at the bottom */
 static void work_area(int *x, int *y, int *w, int *h) {
     *x = 0; *y = 0; *w = SW; *h = SH - panel_h();
 }
@@ -705,17 +706,18 @@ static void draw_cc_fx(void) {
 static int hover_order, hover_pos;
 #define NPINNED 7
 static int task_w(void) { return S(48); }
-static int task_x0(void) { return S(48) + S(4); }
+static int task_x0(void) { return S(8) + S(48) + S(4); }
 enum { Z_SHOWDESK = 7 };
 static void draw_panel(void) {
-    int ph = panel_h(), py = SH - ph;
-    gfx_fill(0, py, SW, ph, TH.panel, 225);
-    gfx_hline(0, py, SW, TH.line, 255);
+    int ph = S(44), py = SH - panel_gap() - ph, X0 = S(8), X1 = SW - S(8), pr = S(14);      /* floating, rounded like Plasma 6 */
+    gfx_shadow(X0, py, X1 - X0, ph, pr, S(16), 120);
+    gfx_rrect(X0, py, X1 - X0, ph, pr, TH.panel, 246);
+    gfx_rrect_line(X0, py, X1 - X0, ph, pr, TH.line, 255);
     /* launcher: the flat logo, nothing else */
     int lw = S(48);
-    if (menu_open) gfx_fill(0, py, lw, ph, TH.btn, 255); else if (hover(0, py, lw, ph)) gfx_fill(0, py, lw, ph, TH.btn, 200);
-    gfx_logo(S(12), py + (ph - S(24)) / 2, S(24), TH.text, menu_open ? TH.btn : (hover(0, py, lw, ph) ? TH.btn : TH.panel));
-    szone(0, py, lw, ph, Z_MENU);
+    if (menu_open) gfx_rrect(X0 + S(4), py + S(4), lw - S(4), ph - S(8), S(10), TH.btn, 255); else if (hover(X0, py, lw, ph)) gfx_rrect(X0 + S(4), py + S(4), lw - S(4), ph - S(8), S(10), TH.btn, 200);
+    gfx_logo(X0 + S(12), py + (ph - S(24)) / 2, S(24), TH.text, menu_open ? TH.btn : (hover(X0, py, lw, ph) ? TH.btn : TH.panel));
+    szone(X0, py, lw, ph, Z_MENU);
     /* task icons: pinned apps, then any other running app; line icons, a short accent bar marks running ones */
     int order[16], n = 0, tw = task_w(), isz = S(20), hovered = -1;
     for (int i = 0; i < NPINNED && i < NAPPS; i++) order[n++] = i;
@@ -732,13 +734,13 @@ static void draw_panel(void) {
     hover_order = hovered >= 0 ? order[hovered] : -1; hover_pos = hovered;
     /* right side: show-desktop strip, clock, tray */
     int sd = S(8);
-    gfx_fill(SW - sd, py + S(8), 1, ph - S(16), TH.line, 255);
-    if (hover(SW - sd, py, sd, ph)) gfx_fill(SW - sd, py, sd, ph, TH.btn_hot, 255);
-    szone(SW - sd, py, sd, ph, Z_SHOWDESK);
+    gfx_fill(X1 - sd - S(2), py + S(10), 1, ph - S(20), TH.line, 255);
+    if (hover(X1 - sd, py, sd, ph)) gfx_rrect(X1 - sd, py + S(8), sd - S(2), ph - S(16), S(3), TH.btn_hot, 255);
+    szone(X1 - sd, py, sd, ph, Z_SHOWDESK);
     time_t now = time(NULL); struct tm lt; char hm[16] = "--:--", date[40] = "";
     if (localtime_r(&now, &lt)) { strftime(hm, sizeof hm, "%H:%M", &lt); snprintf(date, sizeof date, "%s %d %s", DAYS[lt.tm_wday], lt.tm_mday, MONTHS[lt.tm_mon]); }
     int px = S(14), cw1 = text_w(F_BOLD, hm, px), cw2 = text_w(F_UI, date, S(12)), cw = cw1 > cw2 ? cw1 : cw2;
-    int cx = SW - sd - S(12) - cw;
+    int cx = X1 - sd - S(12) - cw;
     text_draw(F_BOLD, cx + (cw - cw1) / 2, py + S(5), hm, TH.text, px);
     text_draw(F_UI, cx + (cw - cw2) / 2, py + S(23), date, TH.dim, S(12));
     if (hover(cx - S(8), py, cw + S(16), ph) || cc_open) gfx_rrect(cx - S(8), py + S(4), cw + S(16), ph - S(8), S(6), TH.btn, 160);
@@ -781,7 +783,7 @@ static void draw_menu(void) {
     int rowh = S(52), w = S(540), headh = S(64), foot = S(60), vis = menu_vis();
     if (menu_scroll > menu_n - vis) menu_scroll = menu_n - vis; if (menu_scroll < 0) menu_scroll = 0;
     int h = headh + S(8) + vis * rowh + foot;
-    int x = S(4), y = SH - panel_h() - h - S(4) + fx_dy;
+    int x = S(8), y = SH - panel_h() - h - S(2) + fx_dy;
     gfx_shadow(x, y, w, h, S(8), S(24), 140);
     gfx_rrect(x, y, w, h, S(8), TH.win, 255);
     gfx_clip(x, y, w, headh); gfx_rrect(x, y, w, headh + S(8), S(8), TH.win_title, 255); gfx_unclip();
@@ -849,7 +851,7 @@ static void draw_menu_fx(void) {
     long t = now_ms(); float k = menu_open ? ease((float)(t - menu_t0) / 180.0f) : 1.0f - ease((float)(t - menu_t0) / 180.0f);
     if (!menu_open && t - menu_t0 >= 180) return;
     menu_rebuild();
-    int h = S(64) + S(8) + menu_vis() * S(52) + S(60), w = S(540), x = S(4), y = SH - panel_h() - h - S(4);
+    int h = S(64) + S(8) + menu_vis() * S(52) + S(60), w = S(540), x = S(8), y = SH - panel_h() - h - S(2);
     int keep = nsz;
     if (k >= 0.999f) { fx_dy = 0; draw_menu(); return; }
     fx_dy = (int)((1.0f - k) * (float)S(18));
