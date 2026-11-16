@@ -214,6 +214,7 @@ static void term_destroy(Win *w) {
 
 static void sel_norm(Term *t, int *l0, int *c0, int *l1, int *c1);
 static void term_draw(Win *w, int x, int y, int cw, int ch) {
+    cursor_hint(x, y, cw, ch, CK_IBEAM);
     Term *t = w->st;
     gfx_fill(x, y, cw, ch, TBG, 255);
     term_resize(w, t);

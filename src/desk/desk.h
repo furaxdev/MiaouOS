@@ -109,6 +109,7 @@ typedef struct App {
     void (*key)(Win *w, int key, int mods);
     int  (*tick)(Win *w);                       /* returns 1 if redraw needed */
     void (*open_arg)(Win *w, const char *path); /* open a file/folder given by the shell */
+    int  (*cursor)(Win *w, int x, int y);       /* optional: mouse cursor kind (CK_*) at a point of the content */
 } App;
 
 struct Win {
@@ -125,6 +126,9 @@ extern Win *focus_win;
 extern int mouse_x, mouse_y;
 extern int want_blink;               /* set during draw when a caret is visible (requests periodic redraw) */
 int ui_auto_scale(int screen_w);
+/* mouse cursor kinds */
+enum { CK_ARROW, CK_HAND, CK_IBEAM, CK_MOVE, CK_RSH, CK_RSV, CK_RSD1, CK_RSD2, CK_BUSY, CK_N };
+void cursor_hint(int x, int y, int w, int h, int kind);   /* during draw: this rectangle shows another cursor */
 void zone(Win *w, int x, int y, int cw, int ch, int id);
 int  hover(int x, int y, int w, int h);          /* pointer inside rect? */
 void dirty(void);

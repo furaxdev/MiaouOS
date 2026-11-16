@@ -294,6 +294,16 @@ static void br_key(Win *w, int key, int mods) {
     }
     if (b->scroll < 0) b->scroll = 0;
 }
+static int br_cursor(Win *w, int x, int y) {
+    Br *b = w->st; int top = S(52);
+    if (y < top || !b->pg) return CK_ARROW;
+    if (b->loading) return CK_BUSY;
+    Node *t = lay_hit(b->pg, x, y - top + b->scroll); if (!t) return CK_ARROW;
+    const char *ty = wn_attr(t, "type"); ty = ty ? ty : "text";
+    if (!strcmp(t->tag, "textarea") || (!strcmp(t->tag, "input") && strcasecmp(ty, "submit") && strcasecmp(ty, "button") && strcasecmp(ty, "checkbox") && strcasecmp(ty, "radio"))) return CK_IBEAM;
+    for (Node *n = t; n; n = n->parent) { if (n->type) continue; if ((!strcmp(n->tag, "a") && wn_attr(n, "href")) || !strcmp(n->tag, "button") || !strcmp(n->tag, "select") || !strcmp(n->tag, "input") || wn_attr(n, "onclick")) return CK_HAND; }
+    return CK_ARROW;
+}
 static void br_open_arg(Win *w, const char *url) { navigate(w->st, url, 1); }
 static int br_tick(Win *w) {
     Br *b = w->st; int redraw = 0;
@@ -350,4 +360,4 @@ static void br_draw(Win *w, int x, int y, int cw, int ch) {
     text_draw_clip(F_UI, x + S(12), y + ch - S(22), st, TH.dim, S(12), cw - S(24));
 }
 
-App app_browser = { "browser", "Navigateur", "web", "Navigateur HTML, CSS et JavaScript (recherche Google)", 980, 640, br_create, br_destroy, br_draw, br_action, br_mouse, br_key, br_tick, br_open_arg };
+App app_browser = { "browser", "Navigateur", "web", "Navigateur HTML, CSS et JavaScript (recherche Google)", 980, 640, br_create, br_destroy, br_draw, br_action, br_mouse, br_key, br_tick, br_open_arg, br_cursor };

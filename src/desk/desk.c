@@ -227,6 +227,7 @@ int ui_tab(Win *w, int x, int y, int bw, int bh, const char *label, const char *
     return hot;
 }
 void ui_field(int x, int y, int fw, int fh, const char *text, int focused, const char *placeholder) {
+    cursor_hint(x, y, fw, fh, CK_IBEAM);
     gfx_rrect(x, y, fw, fh, S(6), TH.field, 255);
     gfx_rrect_line(x, y, fw, fh, S(6), focused ? TH.accent : TH.line, 255);
     int px = S(14), ty = y + (fh - font_line_h(F_UI, px)) / 2;
@@ -994,7 +995,9 @@ static void draw_toasts(void) {
     }
 }
 
+static struct { int x, y, w, h, k; } hints[96]; static int nhint;
 static void draw_scene(void) {
+    nhint = 0;
     nsz = 0; want_blink = 0;
     if (locked) { login_draw(); return; }
     Img *wp = wallpaper(theme_dark);
@@ -1031,24 +1034,68 @@ void apply_config(void) {
     theme_apply(); ditems_rebuild(1); dirty();
 }
 
-/* software cursor drawn straight into the framebuffer (the scene stays cursor-free) */
+/* software cursor drawn straight into the framebuffer (the scene stays cursor-free).
+ * Shapes: arrow and hand are bitmaps, the others (I-beam, resize arrows, move, busy ring) are generated from simple geometry. */
 static const char *CUR[] = {
     "#           ", "##          ", "#+#         ", "#++#        ", "#+++#       ", "#++++#      ", "#+++++#     ", "#++++++#    ",
     "#+++++++#   ", "#++++++++#  ", "#+++++#####", "#++#++#     ", "#+# #++#    ", "##  #++#    ", "#    #++#   ", "     #++#   ", "      ##    " };
-static int cur_dx, cur_dy;
+static const char *HAND[] = {
+    "    ##        ", "   #++#       ", "   #++#       ", "   #++#       ", "   #++###     ", "   #++#++##   ", " ###++#++#+## ", "#++#++++++++#+#",
+    "#+++++++++++++#", " #++++++++++++#", " #++++++++++++#", "  #+++++++++++#", "  #+++++++++# ", "   #++++++++#  ", "   #+++++++#  ", "    #+++++#   ", "    #######   " };
+#define CWD 24
+typedef struct { unsigned char m[CWD][CWD]; int hx, hy; } CurShape;     /* m: 0 clear, 1 dark, 2 light */
+static CurShape cshape;
+static int cur_dx, cur_dy, cur_kind, cur_busy_t, cur_extent = 1;
+void cursor_hint(int x, int y, int w, int h, int kind) { if (nhint < 96) { hints[nhint].x = x; hints[nhint].y = y; hints[nhint].w = w; hints[nhint].h = h; hints[nhint].k = kind; nhint++; } }
+static int cursor_kind_calc(void);
 static void cursor_scale(int *s) { *s = (UIP + 50) / 100; if (*s < 1) *s = 1; }
-static void cursor_erase(void) { int s; cursor_scale(&s); gfx_present_rect(cur_dx - 1, cur_dy - 1, 14 * s + 2, 19 * s + 2); }
+static void cursor_erase(void) { int s; cursor_scale(&s); gfx_present_rect(cur_dx - 1 - 12 * s, cur_dy - 1 - 12 * s, CWD * s + 2, CWD * s + 2); }
+static float cur_inside_darr(float lx, float ly) {                  /* double-headed arrow along x, centred on 0,0 */
+    float ax = lx < 0 ? -lx : lx, ay = ly < 0 ? -ly : ly;
+    if (ay <= 1.1f && ax <= 6.5f) return 1;
+    if (ax >= 4.0f && ax <= 9.6f && ay <= (9.8f - ax) * 0.95f) return 1;
+    return 0;
+}
+static void cursor_build(int kind) {
+    memset(&cshape, 0, sizeof cshape);
+    if (kind == CK_ARROW || kind == CK_HAND) {
+        const char **bm = kind == CK_ARROW ? CUR : HAND; int rows = 17;
+        for (int r = 0; r < rows; r++) for (int c = 0; bm[r][c] && c < CWD; c++) cshape.m[r][c] = bm[r][c] == '#' ? 1 : bm[r][c] == '+' ? 2 : 0;
+        cshape.hx = kind == CK_HAND ? 4 : 0; cshape.hy = 0; return;
+    }
+    unsigned char g[CWD][CWD]; memset(g, 0, sizeof g); float c0 = 11.5f;
+    for (int y = 0; y < CWD; y++) for (int x = 0; x < CWD; x++) {
+        float dx = (float)x + 0.5f - c0, dy = (float)y + 0.5f - c0, fx = dx, fy = dy; int in = 0;
+        switch (kind) {
+        case CK_RSH: in = (int)cur_inside_darr(fx, fy); break;
+        case CK_RSV: in = (int)cur_inside_darr(fy, fx); break;
+        case CK_RSD1: in = (int)cur_inside_darr((dx + dy) * 0.7071f, (dy - dx) * 0.7071f); break;
+        case CK_RSD2: in = (int)cur_inside_darr((dx - dy) * 0.7071f, (dy + dx) * 0.7071f); break;
+        case CK_MOVE: in = (int)cur_inside_darr(fx, fy) || (int)cur_inside_darr(fy, fx); break;
+        case CK_IBEAM: { float ax = fx < 0 ? -fx : fx; in = (ax <= 1.1f && fy >= -8.5f && fy <= 8.5f) || (ax <= 3.6f && ((fy >= -9.5f && fy <= -7.7f) || (fy >= 7.7f && fy <= 9.5f))); } break;
+        case CK_BUSY: { float r = sqrtf(dx * dx + dy * dy); float ang = atan2f(dy, dx) * 57.2958f + 180.0f; float ph = (float)((cur_busy_t / 80) % 12) * 30.0f; float d = ang - ph; while (d < 0) d += 360; in = r >= 5.0f && r <= 8.2f && d < 270.0f; } break;
+        }
+        g[y][x] = (unsigned char)in;
+    }
+    for (int y = 0; y < CWD; y++) for (int x = 0; x < CWD; x++) {
+        if (g[y][x]) { cshape.m[y][x] = 1; continue; }
+        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { int yy = y + j, xx = x + i; if (yy >= 0 && yy < CWD && xx >= 0 && xx < CWD && g[yy][xx]) cshape.m[y][x] = 2; }
+    }
+    cshape.hx = cshape.hy = 12;
+}
 static void cursor_draw(void) {
     int s; cursor_scale(&s);
-    u32 fill = RGB(255, 255, 255), edge = RGB(20, 20, 21);
-    for (int r = 0; r < 17; r++)
-        for (int c = 0; c < 12; c++) {
-            char ch = CUR[r][c];
-            if (ch == ' ') continue;
-            u32 col = ch == '#' ? edge : fill;
-            for (int yy = 0; yy < s; yy++) for (int xx = 0; xx < s; xx++) gfx_fb_pixel(mouse_x + c * s + xx, mouse_y + r * s + yy, col);
+    cur_kind = cursor_kind_calc(); if (cur_kind == CK_BUSY) cur_busy_t = (int)(now_ms() & 0xfffffff);
+    cursor_build(cur_kind);
+    u32 dark = RGB(20, 20, 21), light = RGB(255, 255, 255);
+    for (int r = 0; r < CWD; r++)
+        for (int c = 0; c < CWD; c++) {
+            int v = cshape.m[r][c]; if (!v) continue;
+            u32 col = v == 1 ? dark : light;
+            int px = mouse_x + (c - cshape.hx) * s, py = mouse_y + (r - cshape.hy) * s;
+            for (int yy = 0; yy < s; yy++) for (int xx = 0; xx < s; xx++) gfx_fb_pixel(px + xx, py + yy, col);
         }
-    cur_dx = mouse_x; cur_dy = mouse_y;
+    cur_dx = mouse_x; cur_dy = mouse_y; (void)cur_extent;
 }
 static void present_all(void) { gfx_present(); cursor_draw(); }
 
@@ -1107,6 +1154,26 @@ void desk_mode_changed(void) {
 /* ================================================================== interaction */
 static Win *drag_win, *rs_win, *grab_win;
 static int drag_dx, drag_dy, rs_edge, rs_ox, rs_oy, rs_ow, rs_oh, rs_mx, rs_my;
+static int edge_kind(int e) {
+    if ((e & 3) && (e & 12)) return ((e & 1) && (e & 4)) || ((e & 2) && (e & 8)) ? CK_RSD1 : CK_RSD2;
+    return (e & 3) ? CK_RSH : CK_RSV;
+}
+/* which mouse cursor to show: resize/move while dragging, resize on window borders, then per-widget hints, then the app's own opinion */
+static int cursor_kind_calc(void) {
+    if (locked) return CK_ARROW;
+    if (rs_win) return edge_kind(rs_edge);
+    if (drag_win) return CK_MOVE;
+    Win *w = win_at(mouse_x, mouse_y);
+    if (w && !w->maximized && !w->snapped) {
+        int e = 0;
+        if (mouse_x < w->x + EDGE) e |= 1; if (mouse_x >= w->x + w->w - EDGE) e |= 2;
+        if (mouse_y < w->y + EDGE) e |= 4; if (mouse_y >= w->y + w->h - EDGE) e |= 8;
+        if (e) return edge_kind(e);
+    }
+    if (!menu_open) for (int i = nhint - 1; i >= 0; i--) if (mouse_x >= hints[i].x && mouse_x < hints[i].x + hints[i].w && mouse_y >= hints[i].y && mouse_y < hints[i].y + hints[i].h) return hints[i].k;
+    if (w && w->app->cursor && !menu_open) { int k = w->app->cursor(w, mouse_x - w->cx, mouse_y - w->cy); if (k) return k; }
+    return CK_ARROW;
+}
 static long last_click_t; static int last_cx, last_cy;
 static int left_down, mods;
 
@@ -1644,6 +1711,7 @@ int main(int argc, char **argv) {
             /* caret blink for focused text fields */
             static long blink; if (t / 500 != blink) { blink = t / 500; if (want_blink) dirty(); }
         }
+        if (cur_kind == CK_BUSY && !need_draw) { static long bt2; if (t - bt2 > 80) { bt2 = t; cursor_erase(); cursor_draw(); } }
         if (move_pending) {
             move_pending = 0;
             int h = hot_compute();

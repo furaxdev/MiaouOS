@@ -167,6 +167,7 @@ static void nt_mouse(Win *w, int type, int x, int y, int arg) {
     if (type == M_UP) n->mouse_sel = 0;
 }
 static void nt_draw(Win *w, int x, int y, int cw, int ch) {
+    cursor_hint(x, y + S(70), cw, ch - S(100), CK_IBEAM);
     Notes *n = w->st; n->px = S(14); n->cw = font_cell_w(F_MONO, n->px); n->lh = (int)(n->px * 1.45f);
     int top = S(44), gut = S(56), sbar = S(28);
     ui_button(w, x + S(10), y + S(6), S(36), S(32), NULL, "note", NT_NEW, 0);
