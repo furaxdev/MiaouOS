@@ -216,17 +216,18 @@ def cat_mask(rng, cx, by, hgt):
     a = np.asarray(im, F32) / 255.0
     g = gaussian_filter(a, 2.0 * S / 3)
     gy, gx = np.gradient(g); edge = (a > 0.5) & (gaussian_filter(a, 1.0) < 0.97)
-    ey, ex = np.nonzero(edge); sel = rng.random(len(ey)) < 0.40
-    for yy, xx in zip(ey[sel], ex[sel]):
-        nx_, ny_ = -gx[yy, xx], -gy[yy, xx]; nn = math.hypot(nx_, ny_)
-        if nn < 1e-6: continue
-        nx_, ny_ = nx_ / nn, ny_ / nn
-        ang = math.atan2(ny_, nx_) + rng.normal(0, 0.45); L = (3 + 9 * rng.random() ** 1.6) * S * SCM
-        xa, ya = xx - nx_ * 2, yy - ny_ * 2
-        # slight curve: two segments
-        xm, ym = xa + math.cos(ang) * L * 0.6, ya + math.sin(ang) * L * 0.6
-        xe, ye = xm + math.cos(ang + 0.35) * L * 0.4, ym + math.sin(ang + 0.35) * L * 0.4
-        d.line([(xa, ya), (xm, ym), (xe, ye)], fill=int(150 + 105 * rng.random()), width=max(1, int(S * 0.55 * SCM)))
+    ey, ex = np.nonzero(edge)
+    for dens, lmin, lvar, wid in ((1.0, 3, 8, 0.45), (0.8, 5, 14, 0.40), (0.35, 12, 18, 0.35)):   # short undercoat, guard hairs, long wisps
+        sel = rng.random(len(ey)) < dens
+        for yy, xx in zip(ey[sel], ex[sel]):
+            nx_, ny_ = -gx[yy, xx], -gy[yy, xx]; nn = math.hypot(nx_, ny_)
+            if nn < 1e-6: continue
+            nx_, ny_ = nx_ / nn, ny_ / nn
+            ang = math.atan2(ny_, nx_) + rng.normal(0, 0.55); L = (lmin + lvar * rng.random() ** 1.6) * S * SCM
+            xa, ya = xx - nx_ * 3, yy - ny_ * 3
+            xm, ym = xa + math.cos(ang) * L * 0.6, ya + math.sin(ang) * L * 0.6
+            xe, ye = xm + math.cos(ang + 0.4) * L * 0.4, ym + math.sin(ang + 0.4) * L * 0.4
+            d.line([(xa, ya), (xm, ym), (xe, ye)], fill=int(130 + 125 * rng.random()), width=max(1, int(S * wid * SCM)))
     m = np.asarray(im.resize((x1 - x0, y1 - y0), Image.LANCZOS), F32) / 255.0
     return np.clip(m, 0, 1).astype(F32), x0, y0
 
