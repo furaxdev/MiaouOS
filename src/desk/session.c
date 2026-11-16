@@ -183,75 +183,78 @@ int login_tick(void) { long t = now_ms(); return (locked && (t - t_enter < 400 |
 static const char *LDAYS[] = { "dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi" };
 static const char *LMONTHS[] = { "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre" };
 static void avatar(int cx, int cy, int r, const User *u, int ring) {
-    unsigned h = 7; for (const char *c = u->name; *c; c++) h = h * 31 + (unsigned char)*c;
-    static const u32 TONES[] = { RGB(88, 96, 110), RGB(104, 88, 110), RGB(88, 108, 100), RGB(112, 98, 84), RGB(86, 100, 120) };
-    gfx_circle(cx, cy, r + (ring ? S(3) : 0), ring ? RGB(237, 237, 237) : RGB(0, 0, 0), ring ? 255 : 0);
-    gfx_circle(cx, cy, r, TONES[h % 5], 255);
+    gfx_circle(cx, cy + S(3), r + S(2), RGB(0, 0, 0), 70);                              /* soft drop shadow */
+    if (ring) gfx_circle(cx, cy, r + S(2), RGB(235, 235, 238), 255);
+    gfx_circle(cx, cy, r, RGB(52, 52, 58), 255);
     char ini[8] = { 0 }; const char *d = u->display[0] ? u->display : u->name; int n = utf8_put(ini, utf8_next(&d) & 0x1fffff); ini[n] = 0;
     for (char *c = ini; *c; c++) if (*c >= 'a' && *c <= 'z') *c = (char)(*c - 32);
-    int px = r; int tw = text_w(F_BOLD, ini, px); text_draw(F_BOLD, cx - tw / 2, cy - (int)(px * 0.62f), ini, RGB(245, 245, 247), px);
+    int px = (int)(r * 1.0f); int tw = text_w(F_BOLD, ini, px); text_draw(F_BOLD, cx - tw / 2, cy - (int)(px * 0.62f), ini, RGB(240, 240, 243), px);
 }
 void login_draw(void) {
     nlz = 0; long t = now_ms();
     Img *bg = wallpaper_blur(theme_dark);
     if (bg) gfx_blit(bg->px, bg->w, bg->h, 0, 0); else gfx_fill(0, 0, SW, SH, TH.bg, 255);
-    gfx_fill(0, 0, SW, SH, RGB(8, 8, 10), 110);
-    u32 white = RGB(245, 245, 247), soft = RGB(200, 200, 206);
+    for (int y = 0; y < SH; y += 2) gfx_fill(0, y, SW, 2, RGB(6, 6, 8), 70 + 90 * y / SH);       /* neutral vignette, darker towards the bottom */
+    u32 white = RGB(246, 246, 248), soft = RGB(196, 196, 204), dim = RGB(150, 150, 158);
+    /* brand, top left */
+    gfx_logo(S(28), S(24), S(26), white, RGB(40, 40, 46)); text_draw(F_BOLD, S(64), S(25), "MiaouOS", white, S(16)); text_draw(F_UI, S(64), S(46), "Version 0.3", dim, S(11));
+    /* clock and date */
     time_t now = time(NULL); struct tm lt; char hm[16] = "--:--", date[64] = "";
     if (localtime_r(&now, &lt)) { strftime(hm, sizeof hm, "%H:%M", &lt); snprintf(date, sizeof date, "%s %d %s", LDAYS[lt.tm_wday], lt.tm_mday, LMONTHS[lt.tm_mon]); }
-    int cx = SW / 2, big = S(88);
-    int tw = text_w(F_UI, hm, big); text_draw(F_UI, cx - tw / 2, SH / 7, hm, white, big);
-    tw = text_w(F_UI, date, S(20)); text_draw(F_UI, cx - tw / 2, SH / 7 + (int)(big * 1.25f), date, soft, S(20));
+    int cx = SW / 2, big = S(112);
+    int tw = text_w(F_UI, hm, big); text_draw(F_UI, cx - tw / 2, SH / 11, hm, white, big);
+    tw = text_w(F_UI, date, S(22)); text_draw(F_UI, cx - tw / 2, SH / 11 + (int)(big * 1.22f), date, soft, S(22));
     if (nusers <= 0) return;
     if (sel_user >= nusers) sel_user = 0;
     User *u = &users[sel_user];
     int shake = 0; if (t - t_shake < 450) shake = (int)(sinf((float)(t - t_shake) * 0.06f) * (1.0f - (float)(t - t_shake) / 450.0f) * (float)S(16));
-    int cy = SH / 2 + S(10);
-    avatar(cx + shake, cy, S(44), u, 1);
-    const char *nm = u->display[0] ? u->display : u->name; tw = text_w(F_BOLD, nm, S(22)); text_draw(F_BOLD, cx + shake - tw / 2, cy + S(58), nm, white, S(22));
-    int fw = S(280), fh = S(44), fx = cx - fw / 2 - S(24) + shake, fy = cy + S(100);
-    if (u->hash[0]) {
-        gfx_rrect(fx, fy, fw, fh, S(8), RGB(12, 12, 14), 200); gfx_rrect_line(fx, fy, fw, fh, S(8), err[0] ? TH.bad : RGB(160, 160, 168), 255);
-        size_t n = strlen(pw);
-        if (!n) text_draw(F_UI, fx + S(14), fy + (fh - font_line_h(F_UI, S(15))) / 2, "Mot de passe", RGB(150, 150, 156), S(15));
-        else if (show_pw) text_draw_clip(F_UI, fx + S(14), fy + (fh - font_line_h(F_UI, S(15))) / 2, pw, white, S(15), fw - S(60));
-        else for (size_t i = 0; i < n && i < 16; i++) gfx_circle(fx + S(20) + (int)i * S(14), fy + fh / 2, S(4), white, 255);
-        if ((t / 500) % 2 == 0) { int caret = show_pw ? text_w(F_UI, pw, S(15)) : (int)(n > 16 ? 16 : n) * S(14) - S(2); gfx_fill(fx + S(14) + (show_pw ? caret : caret + S(2)), fy + S(11), 2, fh - S(22), white, 255); }
-        Img *ei = img_get("search", S(18)); (void)ei;
-        text_draw(F_BOLD, fx + fw - S(34), fy + (fh - font_line_h(F_BOLD, S(12))) / 2, show_pw ? "Cacher" : "Voir", soft, S(11)); lzone(fx + fw - S(48), fy, S(48), fh, 2);
-    } else {
-        const char *m = "Aucun mot de passe : Entrée pour se connecter"; tw = text_w(F_UI, m, S(14)); text_draw(F_UI, cx + shake - tw / 2 - S(24), fy + (fh - font_line_h(F_UI, S(14))) / 2, m, soft, S(14));
-    }
-    int bx = fx + fw + S(8), by = fy;
-    gfx_rrect(bx, by, fh, fh, S(8), RGB(237, 237, 237), 255);
-    Img *ar = img_get("forward", S(20)); if (ar) img_draw_tint(ar, bx + S(12), by + S(12), 255, RGB(20, 20, 21));
-    lzone(bx, by, fh, fh, 1);
-    if (err[0]) { tw = text_w(F_UI, err, S(14)); text_draw(F_UI, cx + shake - tw / 2, fy + fh + S(14), err, RGB(255, 140, 140), S(14)); }
-    else if (kbd_caps()) { const char *m = "Verrouillage majuscules activé"; tw = text_w(F_UI, m, S(13)); text_draw(F_UI, cx - tw / 2, fy + fh + S(14), m, RGB(240, 190, 110), S(13)); }
-    /* other users */
+    int cy = SH * 53 / 100;
+    avatar(cx + shake, cy, S(48), u, 0);
+    const char *nm = u->display[0] ? u->display : u->name; tw = text_w(F_BOLD, nm, S(24)); text_draw(F_BOLD, cx + shake - tw / 2, cy + S(66), nm, white, S(24));
+    int fw = S(320), fh = S(48), fx = cx - fw / 2 + shake, fy = cy + S(112);
+    int has_pw = u->hash[0] != 0;
+    gfx_rrect(fx, fy, fw, fh, fh / 2, RGB(255, 255, 255), 34);
+    gfx_rrect_line(fx, fy, fw, fh, fh / 2, err[0] ? RGB(255, 120, 120) : RGB(255, 255, 255), err[0] ? 255 : 90);
+    int bx = fx + fw - fh + S(6), bs = fh - S(12);                                              /* round submit button inside the field */
+    gfx_circle(bx + bs / 2, fy + fh / 2, bs / 2, RGB(240, 240, 243), 255);
+    Img *ar = img_get("forward", S(18)); if (ar) img_draw_tint(ar, bx + (bs - S(18)) / 2, fy + (fh - S(18)) / 2, 255, RGB(24, 24, 26));
+    lzone(bx, fy, bs, fh, 1);
+    if (has_pw) {
+        size_t n = strlen(pw); int ty = fy + (fh - font_line_h(F_UI, S(16))) / 2;
+        if (!n) text_draw(F_UI, fx + S(22), ty, "Mot de passe", RGB(190, 190, 198), S(16));
+        else if (show_pw) text_draw_clip(F_UI, fx + S(22), ty, pw, white, S(16), fw - S(110));
+        else for (size_t i = 0; i < n && i < 16; i++) gfx_circle(fx + S(28) + (int)i * S(15), fy + fh / 2, S(4), white, 255);
+        if ((t / 500) % 2 == 0) { int off = show_pw ? text_w(F_UI, pw, S(16)) : (int)(n > 16 ? 16 : n) * S(15) - S(3); gfx_fill(fx + S(22) + (show_pw ? off : off + S(3)), fy + S(13), 2, fh - S(26), white, 255); }
+        Img *ei = img_get("eye", S(18)); if (ei) img_draw_tint(ei, bx - S(34), fy + (fh - S(18)) / 2, 255, show_pw ? white : dim); lzone(bx - S(42), fy, S(40), fh, 2);
+    } else { const char *m = "Entrée pour se connecter"; text_draw(F_UI, fx + S(22), fy + (fh - font_line_h(F_UI, S(16))) / 2, m, RGB(210, 210, 216), S(16)); }
+    if (err[0]) { tw = text_w(F_UI, err, S(14)); text_draw(F_UI, cx + shake - tw / 2, fy + fh + S(16), err, RGB(255, 150, 150), S(14)); }
+    else if (kbd_caps()) { const char *m = "Verrouillage majuscules activé"; tw = text_w(F_UI, m, S(13)); text_draw(F_UI, cx - tw / 2, fy + fh + S(16), m, RGB(240, 196, 120), S(13)); }
+    /* users, bottom left (as on a workstation login) */
     if (nusers > 1) {
-        int n = nusers, gap = S(76), x0 = cx - (n - 1) * gap / 2, y0 = SH - S(120);
-        for (int i = 0; i < n; i++) {
-            int ax = x0 + i * gap, hot = hover(ax - S(28), y0 - S(28), S(56), S(80));
-            avatar(ax, y0, S(24), &users[i], i == sel_user);
-            const char *d = users[i].display[0] ? users[i].display : users[i].name; int dw = text_w(F_UI, d, S(12));
-            text_draw(F_UI, ax - dw / 2, y0 + S(34), d, i == sel_user || hot ? white : soft, S(12));
-            lzone(ax - S(32), y0 - S(30), S(64), S(84), 10 + i);
+        int rows = nusers, y0 = SH - S(28) - rows * S(52);
+        for (int i = 0; i < rows; i++) {
+            int ry = y0 + i * S(52), sel = i == sel_user, hot = hover(S(20), ry, S(220), S(46));
+            if (sel || hot) gfx_rrect(S(20), ry, S(220), S(46), S(10), RGB(255, 255, 255), sel ? 40 : 22);
+            avatar(S(20) + S(24), ry + S(23), S(16), &users[i], 0);
+            const char *d = users[i].display[0] ? users[i].display : users[i].name;
+            text_draw(sel ? F_BOLD : F_UI, S(20) + S(52), ry + (S(46) - font_line_h(F_UI, S(14))) / 2, d, sel || hot ? white : soft, S(14));
+            lzone(S(20), ry, S(220), S(46), 10 + i);
         }
     }
-    /* bottom bar: keyboard layout (left), restart / shut down (right) */
-    const char *lay = kbd_layout() ? "FR" : "US"; int lw = text_w(F_BOLD, lay, S(13)) + S(24);
-    gfx_rrect(S(20), SH - S(60), lw, S(40), S(8), RGB(20, 20, 22), hover(S(20), SH - S(60), lw, S(40)) ? 255 : 190);
-    text_draw(F_BOLD, S(32), SH - S(60) + (S(40) - font_line_h(F_BOLD, S(13))) / 2, lay, white, S(13)); lzone(S(20), SH - S(60), lw, S(40), 30);
-    const char *ic[2] = { "reboot", "power" };
-    for (int i = 0; i < 2; i++) {
-        int px0 = SW - S(20) - (2 - i) * S(48) - (1 - i) * S(0), py0 = SH - S(60);
-        gfx_rrect(px0, py0, S(40), S(40), S(8), RGB(20, 20, 22), hover(px0, py0, S(40), S(40)) ? 255 : 190);
-        Img *im = img_get(ic[i], S(20)); if (im) img_draw_tint(im, px0 + S(10), py0 + S(10), 255, white);
-        lzone(px0, py0, S(40), S(40), 31 + i);
+    /* status and power, bottom right */
+    int up = 0; const char *ip = net_summary(&up);
+    const char *lay = kbd_layout() ? "FR" : "US"; int lw = text_w(F_BOLD, lay, S(13)) + S(24), ih = S(40), by = SH - S(28) - ih, x = SW - S(24);
+    for (int i = 1; i >= 0; i--) {
+        static const char *ic[2] = { "reboot", "power" }; x -= ih; int hot = hover(x, by, ih, ih);
+        gfx_rrect(x, by, ih, ih, ih / 2, RGB(255, 255, 255), hot ? 56 : 28);
+        Img *im = img_get(ic[i], S(18)); if (im) img_draw_tint(im, x + (ih - S(18)) / 2, by + (ih - S(18)) / 2, 255, white);
+        lzone(x, by, ih, ih, 31 + i); x -= S(10);
     }
+    x -= S(10); x -= lw; { int hot = hover(x, by, lw, ih); gfx_rrect(x, by, lw, ih, ih / 2, RGB(255, 255, 255), hot ? 56 : 28); text_draw(F_BOLD, x + S(12), by + (ih - font_line_h(F_BOLD, S(13))) / 2, lay, white, S(13)); lzone(x, by, lw, ih, 30); }
+    { int nw = S(40) + text_w(F_UI, ip, S(13)); x -= S(10) + nw; gfx_rrect(x, by, nw, ih, ih / 2, RGB(255, 255, 255), 28);
+      Img *ni = img_get(up ? "signal" : "plug", S(18)); if (ni) img_draw_tint(ni, x + S(12), by + (ih - S(18)) / 2, 255, white); text_draw(F_UI, x + S(36), by + (ih - font_line_h(F_UI, S(13))) / 2, ip, soft, S(13)); }
     /* fade in */
-    if (t - t_enter < 400) { float k = (float)(t - t_enter) / 400.0f; gfx_fill(0, 0, SW, SH, RGB(8, 8, 10), (int)((1.0f - k) * 255)); }
+    if (t - t_enter < 450) { float k = (float)(t - t_enter) / 450.0f; gfx_fill(0, 0, SW, SH, RGB(8, 8, 10), (int)((1.0f - k) * (1.0f - k) * 255)); }
 }
 void login_key(int key, int mods) {
     (void)mods;

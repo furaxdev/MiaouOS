@@ -25,7 +25,7 @@ initrd = args.initrd or str(build / 'miaouos-initramfs.cpio.gz')
 for p in (qmp_path, serial):
     try: p.unlink()
     except FileNotFoundError: pass
-append = 'console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 miaou.kbd=%s miaou.theme=%s' % (args.kbd, args.theme)
+append = 'console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 quiet loglevel=3 vt.global_cursor_default=0 miaou.kbd=%s miaou.theme=%s' % (args.kbd, args.theme)
 if args.scenario in ('fr', 'res', 'desk', 'tools', 'apps2') or args.quick: append += ' miaou.autologin=miaou'
 if args.res: append += ' video=Virtual-1:' + args.res
 boot = ['-machine', 'pc', '-cdrom', args.iso, '-boot', 'd'] if args.iso else ['-machine', 'q35', '-kernel', kernel, '-initrd', initrd, '-append', append]

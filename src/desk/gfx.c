@@ -491,12 +491,33 @@ Img *img_scale_smooth(Img *src, int w, int h) {
     return o;
 }
 static Img *wall_blur[2];
-Img *wallpaper_blur(int night) {          /* strongly downscaled then smoothly upscaled = cheap blur, cached */
+static void box_blur(Img *im, int r) {            /* separable box blur, running sums, edges clamped */
+    int w = im->w, h = im->h; u32 *tmp = malloc((size_t)w * h * 4);
+    for (int pass = 0; pass < 2; pass++) {
+        u32 *src = pass ? tmp : im->px, *dst = pass ? im->px : tmp;
+        int n = pass ? h : w, m = pass ? w : h, stride_i = pass ? w : 1, stride_o = pass ? 1 : w;
+        for (int o = 0; o < m; o++) {
+            u32 *line_s = src + (size_t)o * stride_o, *line_d = dst + (size_t)o * stride_o;
+            for (int ch = 0; ch <= 16; ch += 8) {
+                long sum = 0; for (int k = -r; k <= r; k++) { int idx = k < 0 ? 0 : k >= n ? n - 1 : k; sum += (line_s[(size_t)idx * stride_i] >> ch) & 255; }
+                for (int i = 0; i < n; i++) {
+                    u32 v = (u32)(sum / (2 * r + 1)); if (ch == 0) line_d[(size_t)i * stride_i] = 0xff000000u;
+                    line_d[(size_t)i * stride_i] |= v << ch;
+                    int add = i + r + 1, rem = i - r; add = add >= n ? n - 1 : add; rem = rem < 0 ? 0 : rem;
+                    sum += ((line_s[(size_t)add * stride_i] >> ch) & 255) - ((line_s[(size_t)rem * stride_i] >> ch) & 255);
+                }
+            }
+        }
+    }
+    free(tmp);
+}
+Img *wallpaper_blur(int night) {          /* smooth gaussian-like blur at 1/6 resolution, cached */
     int k = night ? 1 : 0;
     if (wall_blur[k] && wall_blur[k]->w == SW && wall_blur[k]->h == SH) return wall_blur[k];
     img_free(wall_blur[k]); wall_blur[k] = NULL;
     Img *wp = wallpaper(night); if (!wp) return NULL;
-    Img *small = img_scale(wp, SW / 24 > 8 ? SW / 24 : 8, SH / 24 > 8 ? SH / 24 : 8);
+    Img *small = img_scale(wp, SW / 6 > 16 ? SW / 6 : 16, SH / 6 > 16 ? SH / 6 : 16);
+    for (int i = 0; i < 3; i++) box_blur(small, 4);
     wall_blur[k] = img_scale_smooth(small, SW, SH);
     img_free(small);
     return wall_blur[k];

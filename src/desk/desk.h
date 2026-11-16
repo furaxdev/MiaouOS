@@ -205,6 +205,8 @@ void wallpaper_set_custom(const char *path);
 void clock_timers_tick(void);
 int miaou_calc(const char *src, char *out, size_t n);
 int input_mods(void);
+const char *net_summary(int *up);
+void splash_draw(void);
 extern App *APPS[];
 extern int NAPPS;
 #endif

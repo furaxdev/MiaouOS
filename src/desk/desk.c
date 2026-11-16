@@ -468,6 +468,14 @@ static int ctrl_hit(Win *w, int x, int y) {      /* returns 1 close, 2 minimise,
 /* ================================================================== network summary for the panel */
 static char net_text[40] = "hors ligne";
 static int net_up;
+const char *net_summary(int *up) { if (up) *up = net_up; return net_text; }
+void splash_draw(void) {
+    gfx_fill(0, 0, SW, SH, RGB(15, 15, 16), 255);
+    int sz = S(88); gfx_logo((SW - sz) / 2, SH / 2 - sz, sz, RGB(237, 237, 237), RGB(15, 15, 16));
+    const char *t = "MiaouOS"; int tw = text_w(F_BOLD, t, S(26)); text_draw(F_BOLD, (SW - tw) / 2, SH / 2 + S(22), t, RGB(237, 237, 237), S(26));
+    int bw = S(160), bx = (SW - bw) / 2, by = SH / 2 + S(76); gfx_rrect(bx, by, bw, S(3), S(1), RGB(46, 46, 49), 255); gfx_rrect(bx, by, bw / 3, S(3), S(1), RGB(232, 163, 61), 255);
+    gfx_present();
+}
 static void net_refresh(void) {
     char ip[32] = "";
     FILE *f = fopen("/proc/net/fib_trie", "r");
@@ -1506,6 +1514,7 @@ int main(int argc, char **argv) {
         if ((p = strstr(cl, "miaou.autologin="))) { p += 16; size_t n = strcspn(p, " \n"); if (n < sizeof autologin) { memcpy(autologin, p, n); autologin[n] = 0; } }
         free(cl);
     }
+    splash_draw();
     session_init();
     apply_config();
     theme_apply();

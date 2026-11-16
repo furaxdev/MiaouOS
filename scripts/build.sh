@@ -70,10 +70,10 @@ mkdir -p "$ISO_ROOT/boot/grub"
 cp "$BUILD/miaouos-kernel-bzImage" "$ISO_ROOT/boot/miaouos-kernel-bzImage"
 cp "$BUILD/miaouos-initramfs.cpio.gz" "$ISO_ROOT/boot/miaouos-initramfs.cpio.gz"
 cat > "$ISO_ROOT/boot/grub/grub.cfg" <<'GRUB'
-set timeout=5
+set timeout=2
 set default=0
 menuentry "MiaouOS — Le Linux des chats !" {
-    linux /boot/miaouos-kernel-bzImage console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 miaou.kbd=fr
+    linux /boot/miaouos-kernel-bzImage console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 quiet loglevel=3 vt.global_cursor_default=0 miaou.kbd=fr
     initrd /boot/miaouos-initramfs.cpio.gz
 }
 GRUB
