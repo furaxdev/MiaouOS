@@ -1,0 +1,5 @@
+body { font-family: sans-serif; background: #fff8ec; color: #2b2f36; }
+h1.title { color: #d9480f; border-bottom: 3px solid #f2a93b; padding-bottom: 4px; }
+a { color: #1c7ed6; }
+code { background: #e9ecef; padding: 1px 4px; }
+ul li:first-child { font-weight: bold; }

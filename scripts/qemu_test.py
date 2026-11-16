@@ -15,7 +15,7 @@ ap.add_argument('--quick', action='store_true') # boot + one screenshot only
 ap.add_argument('--iso', default='')              # boot this ISO (BIOS/GRUB) instead of kernel+initrd
 ap.add_argument('--serial-log', default='')
 ap.add_argument('--kbd', default='us')          # guest keyboard layout (miaou.kbd=)
-ap.add_argument('--scenario', default='full', choices=['full', 'fr', 'res', 'iso', 'desk', 'tools', 'apps2', 'session'])
+ap.add_argument('--scenario', default='full', choices=['full', 'fr', 'res', 'iso', 'desk', 'tools', 'apps2', 'session', 'web'])
 args = ap.parse_args()
 root = Path(args.root); build = root / 'build'; shots = build / 'screenshots'
 shots.mkdir(parents=True, exist_ok=True)
@@ -26,7 +26,7 @@ for p in (qmp_path, serial):
     try: p.unlink()
     except FileNotFoundError: pass
 append = 'console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 quiet loglevel=3 vt.global_cursor_default=0 miaou.kbd=%s miaou.theme=%s' % (args.kbd, args.theme)
-if args.scenario in ('fr', 'res', 'desk', 'tools', 'apps2') or args.quick: append += ' miaou.autologin=miaou'
+if args.scenario in ('fr', 'res', 'desk', 'tools', 'apps2', 'web') or args.quick: append += ' miaou.autologin=miaou'
 if args.res: append += ' video=Virtual-1:' + args.res
 boot = ['-machine', 'pc', '-cdrom', args.iso, '-boot', 'd'] if args.iso else ['-machine', 'q35', '-kernel', kernel, '-initrd', initrd, '-append', append]
 cmd = ['qemu-system-x86_64', *boot, '-m', '768M', '-smp', '2', '-accel', 'kvm', '-accel', 'tcg',
@@ -236,10 +236,24 @@ def session_scenario():
     key('meta_l', 'l'); time.sleep(1.8); shot('43-lock-screen')
     key('tab'); time.sleep(0.5); typ('miaou\n'); wait_marker('MIAOUDESK_LOGIN_OK miaou'); time.sleep(3.0); shot('44-switched-to-miaou')
 
+def web_scenario():
+    # needs tests/web/server.py running on the host (guest reaches it at 10.0.2.2:8000)
+    def launch(name):
+        click(*launcher_xy()); time.sleep(0.5); typ(name); time.sleep(0.4); key('ret'); time.sleep(1.5)
+    launch('navigateur'); time.sleep(1.0); shot('60-browser-home')
+    key('meta_l', 'up'); time.sleep(1.2)
+    key('ctrl', 'l'); time.sleep(0.4); typ('http://10.0.2.2:8000/index.html\n'); time.sleep(8.0); shot('61-web-page')
+    bx, by = S(60), TH_H + S(52) + S(8) + S(16)
+    click(bx, by); time.sleep(0.6); click(bx, by); time.sleep(0.6); shot('62-web-js-clicked')
+    click(S(200), by); time.sleep(0.4); typ('chat'); time.sleep(0.5); shot('63-web-typed')
+    key('ret'); time.sleep(6.0); shot('64-web-form-result')
+
 if args.scenario == 'apps2':
     apps2_scenario()
 elif args.scenario == 'session':
     session_scenario()
+elif args.scenario == 'web':
+    web_scenario()
 elif args.scenario == 'tools':
     tools_scenario()
 elif args.scenario == 'desk':

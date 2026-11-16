@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Test Miaou Web</title>
+<link rel="stylesheet" href="style.css">
+<style>
+ .badge { display:inline-block; padding:2px 10px; border-radius:10px; background:#f2a93b; color:#26323a; font-weight:bold; }
+ #flex { display:flex; gap:10px; margin-top:10px; }
+ #flex div { padding:10px; border:2px solid #4c6ef5; background:#edf2ff; }
+ table { border-collapse:collapse; } td, th { border:1px solid #bbb; padding:4px 8px; }
+</style></head>
+<body>
+<form action="/echo" method="get" id="f"><button type="button" id="b" style="margin:0">Compter</button> <input id="t" name="q" placeholder="mot"> <input type="submit" value="Envoyer"></form>
+<h1 class="title">CSS et JavaScript</h1>
+<p>Un paragraphe avec du <b>gras</b>, de l'<i>italique</i>, un <a href="/echo?x=1">lien</a> et du <code>code</code>. <span class="badge" id="count">0 clic</span></p>
+<p id="out" style="color:#c92a2a">JS : en attente…</p>
+<ul><li>Premier</li><li>Deuxième</li><li>Troisième</li></ul>
+<div id="flex"><div>Boîte A</div><div>Boîte B</div><div>Boîte C</div></div>
+<table><tr><th>Nom</th><th>Rôle</th></tr><tr><td>Miaou</td><td>Chat</td></tr></table>
+<script>
+var n = 0;
+document.getElementById('b').onclick = function () {
+  n++;
+  document.getElementById('count').textContent = n + (n > 1 ? ' clics' : ' clic');
+  var li = document.createElement('li'); li.textContent = 'Ajouté en JS #' + n;
+  document.getElementsByTagName('ul')[0].appendChild(li);
+  document.getElementById('out').style.color = '#2b8a3e';
+  document.getElementById('out').innerHTML = '<b>JS actif</b> : bouton cliqué ' + n + ' fois';
+};
+var ticks = 0;
+setInterval(function () { ticks++; document.title = 'Test Miaou Web (' + ticks + ')'; }, 500);
+document.getElementById('out').textContent = 'JS : la page est chargée (' + document.querySelectorAll('li').length + ' éléments de liste)';
+</script></body></html>

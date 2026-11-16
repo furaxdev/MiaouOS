@@ -8,8 +8,10 @@ WORK="${2:-$ROOT/build/work}"
 mkdir -p "$WORK" "$ROOTFS"/{bin,sbin,etc,proc,sys,dev,tmp,run,root,usr/bin,usr/sbin,usr/share/miaou/{fonts,icons,wallpapers,licenses,packages},usr/share/udhcpc,usr/lib/miaou,var/lib/miaou/repository,var/cache/miaou,opt/miaou/packages}
 
 # --- MiaouDesk (C, static) ---
+# MuJS (ISC, vendored in src/desk/mujs) is the JavaScript engine of the browser
+gcc -std=gnu11 -O2 -w -c "$ROOT/src/desk/mujs/one.c" -o "$WORK/mujs.o"
 gcc -std=gnu11 -O2 -g -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -static \
-  "$ROOT"/src/desk/*.c -o "$ROOTFS/usr/bin/miaoudesk-gui" -lm
+  "$ROOT"/src/desk/*.c "$WORK/mujs.o" -o "$ROOTFS/usr/bin/miaoudesk-gui" -lm
 # --- assets (fonts, icons, wallpapers) ---
 install -m 0644 "$ROOT"/assets/fonts/*.ttf "$ROOTFS/usr/share/miaou/fonts/"
 install -m 0644 "$ROOT"/assets/fonts/OFL-*.txt "$ROOTFS/usr/share/miaou/licenses/"
