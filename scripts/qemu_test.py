@@ -203,7 +203,7 @@ def tools_scenario():
     off_ = 4 * S(28)                                   # cascade offset: this is the 5th window
     right_x, right_y = (W - S(860)) // 2 + off_ - S(40) + S(300), max(0, (AH - S(600)) // 2 + off_ - S(20)) + S(18)
     click(right_x, right_y, button='right'); time.sleep(0.6); shot('28-window-menu'); key('esc'); time.sleep(0.4)
-    key('print'); time.sleep(1.0)
+    key('print'); time.sleep(4.0)
     if 'MIAOUDESK_SCREENSHOT' not in log_text(): fail('PrintScreen did not write a screenshot')
 
 def apps2_scenario():

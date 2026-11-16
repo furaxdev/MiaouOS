@@ -83,9 +83,9 @@ static void slog(const char *fmt, ...) {
 void theme_apply(void) {
     u32 a = ACCENTS[accent_idx][0], a2 = ACCENTS[accent_idx][1];
     if (theme_dark) {   /* graphite ramp */
-        TH = (Theme){ RGB(20, 20, 21), RGB(15, 15, 16), RGB(25, 25, 27), RGB(35, 35, 37), RGB(29, 29, 31), RGB(237, 237, 237), RGB(161, 161, 166),
-                      a, a2, RGB(35, 35, 37), RGB(46, 46, 49), RGB(46, 46, 49), RGB(15, 15, 16), 0, RGB(76, 195, 138), RGB(229, 72, 77), RGB(224, 160, 60), 1 };
-        TH.sel = gfx_mix(RGB(25, 25, 27), a, 46);
+        TH = (Theme){ RGB(43, 46, 56), RGB(36, 39, 48), RGB(52, 55, 66), RGB(62, 66, 79), RGB(55, 58, 70), RGB(242, 243, 246), RGB(176, 180, 192),
+                      a, a2, RGB(66, 70, 84), RGB(82, 87, 104), RGB(84, 89, 106), RGB(38, 41, 50), 0, RGB(76, 195, 138), RGB(229, 72, 77), RGB(224, 160, 60), 1 };
+        TH.sel = gfx_mix(RGB(52, 55, 66), a, 46);
     } else {
         TH = (Theme){ RGB(250, 250, 250), RGB(245, 245, 246), RGB(255, 255, 255), RGB(244, 244, 245), RGB(248, 248, 249), RGB(23, 23, 23), RGB(82, 82, 82),
                       a2, a, RGB(236, 236, 238), RGB(224, 224, 227), RGB(222, 222, 225), RGB(255, 255, 255), 0, RGB(22, 163, 74), RGB(220, 38, 38), RGB(180, 100, 0), 0 };
