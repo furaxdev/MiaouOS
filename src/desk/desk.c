@@ -1720,9 +1720,14 @@ int main(int argc, char **argv) {
         }
         if (need_draw && t - last_draw >= (animating ? 8 : 14)) {
             need_draw = 0; last_draw = t;
+            long p0 = now_ms();
             draw_scene();
             hot_sig = hot_compute();
+            long p1 = now_ms();
             present_all();
+            long p2 = now_ms();
+            { static long pa, pb, pn, pt0; pa += p1 - p0; pb += p2 - p1; pn++; if (!pt0) pt0 = p0;
+              if (p2 - pt0 >= 4000) { slog("MIAOUDESK_PERF frames=%ld draw=%ldms present=%ldms avg_draw=%.1f avg_present=%.1f fps=%.1f", pn, pa, pb, (double)pa / (double)pn, (double)pb / (double)pn, (double)pn * 1000.0 / (double)(p2 - pt0)); pa = pb = pn = 0; pt0 = p2; } }
         }
     }
     restore_tty();
