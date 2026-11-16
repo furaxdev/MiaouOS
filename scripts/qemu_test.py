@@ -240,6 +240,7 @@ def web_scenario():
     # needs tests/web/server.py running on the host (guest reaches it at 10.0.2.2:8000)
     def launch(name):
         click(*launcher_xy()); time.sleep(0.5); typ(name); time.sleep(0.4); key('ret'); time.sleep(1.5)
+    launch('terminal'); typ('wget -T 5 -O - http://10.0.2.2:8000/echo?x=1 2>&1 | head -5; echo rc=$?; ip route; cat /etc/resolv.conf\n'); time.sleep(8); shot('59-wget-check'); key('ctrl', 'd'); time.sleep(0.8)
     launch('navigateur'); time.sleep(1.0); shot('60-browser-home')
     key('meta_l', 'up'); time.sleep(1.2)
     key('ctrl', 'l'); time.sleep(0.4); typ('http://10.0.2.2:8000/index.html\n'); time.sleep(8.0); shot('61-web-page')
