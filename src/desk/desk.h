@@ -59,6 +59,7 @@ void  gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c,
 void  gfx_rtri(float x0, float y0, float x1, float y1, float x2, float y2, float rho, u32 c, int a);   /* rounded triangle */
 void  gfx_logo(int x, int y, int size, u32 color, u32 eye);   /* the MiaouOS cat-head logo */
 void  img_free(Img *im);
+Img  *gfx_cache_render(int w, int h, void (*draw)(void *ud, int ox, int oy), void *ud);   /* render to a private ARGB image */
 extern int icon_ears;                                       /* 0 none, 1 rounded, 2 pointed cat ears on icons */
 void  icon_tile(const char *name, int x, int y, int size);   /* colourful rounded app icon */
 Img  *wallpaper(int night);                      /* scaled to screen (cover) */

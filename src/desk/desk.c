@@ -112,7 +112,7 @@ static const struct { const char *n; u32 c; } ICOLS[] = {      /* colours chosen
     { "drive", RGB(134, 142, 150) }, { "package", RGB(47, 174, 102) }, { "search", RGB(42, 125, 225) },
 };
 int icon_ears = 1;                   /* 0 none, 1 rounded cat ears, 2 pointed cat ears (Settings > Apparence) */
-void icon_tile(const char *name, int x, int y, int sz) {
+static void icon_tile_raw(const char *name, int x, int y, int sz) {
     u32 c = RGB(100, 116, 139);
     for (size_t i = 0; i < sizeof ICOLS / sizeof ICOLS[0]; i++) if (!strcmp(ICOLS[i].n, name)) c = ICOLS[i].c;
     int r = sz * 30 / 100; float e = (float)sz, fx = (float)x, fy = (float)y;
@@ -134,6 +134,22 @@ void icon_tile(const char *name, int x, int y, int sz) {
     gfx_rrect(x, y, sz, sz, r, c, 255);
     int g = sz * 54 / 100; Img *im = img_get(name, g);
     if (im) img_draw_tint(im, x + (sz - g) / 2, y + (sz - g) / 2, 255, RGB(255, 255, 255));
+}
+typedef struct { char name[16]; int sz, ears; Img *im; } IconC;
+static IconC iconc[64]; static int niconc;
+typedef struct { const char *name; int sz, ox, oy; } IconCtx;
+static void icon_draw_cb(void *ud, int ox, int oy) { IconCtx *c = ud; icon_tile_raw(c->name, ox + c->ox, oy + c->oy, c->sz); }
+/* icons (tile + cat ears + glyph) are rendered once per size/ear style and then blitted: the SDF ears are expensive on slow CPUs */
+void icon_tile(const char *name, int x, int y, int sz) {
+    IconC *c = NULL;
+    for (int i = 0; i < niconc; i++) if (iconc[i].sz == sz && iconc[i].ears == icon_ears && !strcmp(iconc[i].name, name)) { c = &iconc[i]; break; }
+    int side = 3, top = sz * 3 / 10 + 4;
+    if (!c) {
+        if (niconc >= 64) { for (int i = 0; i < niconc; i++) img_free(iconc[i].im); niconc = 0; }
+        c = &iconc[niconc++]; snprintf(c->name, sizeof c->name, "%s", name); c->sz = sz; c->ears = icon_ears;
+        IconCtx cx = { name, sz, side, top }; c->im = gfx_cache_render(sz + 2 * side, sz + top + side, icon_draw_cb, &cx);
+    }
+    if (c->im) img_draw_tint(c->im, x - side, y - top, 255, 0); else icon_tile_raw(name, x, y, sz);
 }
 
 /* ================================================================== config */

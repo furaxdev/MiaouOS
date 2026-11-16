@@ -442,6 +442,26 @@ void gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c, 
             if (cov > 0) put(x, y, c, (int)((cov > 1 ? 1 : cov) * a));
         }
 }
+/* Render a drawing twice (on black, then on white) into a private buffer and recover straight alpha: the result is a small
+ * ARGB image that can be blitted cheaply every frame (icons, logo) instead of re-running the anti-aliased rasterisers. */
+Img *gfx_cache_render(int w, int h, void (*draw)(void *ud, int ox, int oy), void *ud) {
+    u32 *a = malloc((size_t)w * (size_t)h * 4), *b = malloc((size_t)w * (size_t)h * 4); if (!a || !b) { free(a); free(b); return NULL; }
+    u32 *ss = scene; int ssw = SW, ssh = SH, sx0 = cx0, sy0 = cy0, sx1 = cx1, sy1 = cy1;
+    scene = a; SW = w; SH = h; cx0 = 0; cy0 = 0; cx1 = w; cy1 = h;
+    for (int i = 0; i < w * h; i++) a[i] = 0; draw(ud, 0, 0);
+    scene = b; for (int i = 0; i < w * h; i++) b[i] = 0xffffff; draw(ud, 0, 0);
+    scene = ss; SW = ssw; SH = ssh; cx0 = sx0; cy0 = sy0; cx1 = sx1; cy1 = sy1;
+    Img *im = calloc(1, sizeof *im); im->w = w; im->h = h; im->px = malloc((size_t)w * (size_t)h * 4);
+    for (int i = 0; i < w * h; i++) {
+        int dr = (int)((b[i] >> 16) & 255) - (int)((a[i] >> 16) & 255), dg = (int)((b[i] >> 8) & 255) - (int)((a[i] >> 8) & 255), db = (int)(b[i] & 255) - (int)(a[i] & 255);
+        int al = 255 - (dr + dg + db) / 3; if (al < 0) al = 0; if (al > 255) al = 255;
+        if (al == 0) { im->px[i] = 0; continue; }
+        int r = (int)((a[i] >> 16) & 255) * 255 / al, g = (int)((a[i] >> 8) & 255) * 255 / al, bl = (int)(a[i] & 255) * 255 / al;
+        if (r > 255) r = 255; if (g > 255) g = 255; if (bl > 255) bl = 255;
+        im->px[i] = ((u32)al << 24) | ((u32)r << 16) | ((u32)g << 8) | (u32)bl;
+    }
+    free(a); free(b); return im;
+}
 /* Rounded triangle: the triangle (x0,y0)-(x1,y1)-(x2,y2) inflated by rho, anti-aliased through its signed distance field. */
 static float seg_d2(float px, float py, float ax, float ay, float bx, float by) {
     float dx = bx - ax, dy = by - ay, t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
@@ -472,8 +492,7 @@ static void arc2(float x0, float y0, float cx, float cy, float x1, float y1, flo
     }
     gfx_circle((int)(x0 + 0.5f), (int)(y0 + 0.5f), (int)(w / 2 + 0.5f), c, 255); gfx_circle((int)(x1 + 0.5f), (int)(y1 + 0.5f), (int)(w / 2 + 0.5f), c, 255);
 }
-void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
-    (void)color; (void)eye;
+static void logo_raw(int x, int y, int size) {
     const u32 head = RGB(242, 169, 59), ink = RGB(38, 50, 56), blush = RGB(217, 71, 92);
     float k = (float)size / 150.0f, ox = (float)x - 25.0f * k, oy = (float)y - 40.0f * k + 5.0f * k;
     #define LX(v) (ox + (v) * k)
@@ -496,6 +515,16 @@ void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
     }
     #undef LX
     #undef LY
+}
+typedef struct { int size; Img *im; } LogoC;
+static LogoC logoc[8];
+static void logo_draw_cb(void *ud, int ox, int oy) { logo_raw(ox + 2, oy + 2, *(int *)ud); }
+void gfx_logo(int x, int y, int size, u32 color, u32 eye) {
+    (void)color; (void)eye;
+    LogoC *c = NULL; for (int i = 0; i < 8; i++) if (logoc[i].im && logoc[i].size == size) c = &logoc[i];
+    if (!c) { for (int i = 0; i < 8 && !c; i++) if (!logoc[i].im) c = &logoc[i]; if (!c) { img_free(logoc[0].im); logoc[0].im = NULL; c = &logoc[0]; }
+        int sz = size; c->im = gfx_cache_render(size + 4, size + 4, logo_draw_cb, &sz); c->size = size; }
+    if (c->im) img_draw_tint(c->im, x - 2, y - 2, 255, 0); else logo_raw(x, y, size);
 }
 
 #define ICON_CACHE 96
