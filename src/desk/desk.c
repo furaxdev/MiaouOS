@@ -95,12 +95,21 @@ void theme_apply(void) {
 
 
 /* ---- colourful app icons: a saturated rounded tile with a white line glyph (like a phone launcher) ---- */
-static const struct { const char *n; u32 c; } ICOLS[] = {
-    { "terminal", RGB(43, 138, 62) }, { "files", RGB(245, 159, 0) }, { "web", RGB(34, 139, 230) }, { "store", RGB(255, 122, 24) },
-    { "monitor", RGB(240, 62, 62) }, { "network", RGB(16, 152, 173) }, { "settings", RGB(121, 80, 242) }, { "notes", RGB(112, 170, 20) },
-    { "calculator", RGB(230, 73, 128) }, { "image", RGB(76, 110, 245) }, { "clock", RGB(190, 75, 219) }, { "info", RGB(73, 80, 87) },
-    { "folder", RGB(245, 159, 0) }, { "file", RGB(77, 171, 247) }, { "trash", RGB(134, 142, 150) }, { "home", RGB(51, 154, 240) },
-    { "drive", RGB(134, 142, 150) }, { "package", RGB(32, 201, 151) }, { "search", RGB(34, 139, 230) },
+static const struct { const char *n; u32 c; } ICOLS[] = {      /* colours chosen for what the app does */
+    { "terminal", RGB(38, 50, 56) },      /* dark console */
+    { "files", RGB(240, 138, 0) },        /* manila folder */
+    { "web", RGB(42, 125, 225) },         /* sky / globe */
+    { "store", RGB(47, 174, 102) },       /* shop, packages: green */
+    { "monitor", RGB(232, 69, 60) },      /* heartbeat */
+    { "network", RGB(18, 165, 181) },     /* connections: cyan */
+    { "settings", RGB(107, 119, 133) },   /* steel gear */
+    { "notes", RGB(230, 184, 0) },        /* yellow sticky note */
+    { "calculator", RGB(66, 99, 235) },   /* numbers: deep blue */
+    { "image", RGB(230, 73, 128) },       /* photos: rose */
+    { "clock", RGB(121, 80, 242) },       /* time / night: violet */
+    { "info", RGB(77, 163, 224) },        /* information bubble */
+    { "folder", RGB(240, 138, 0) }, { "file", RGB(76, 141, 246) }, { "trash", RGB(134, 142, 150) }, { "home", RGB(42, 125, 225) },
+    { "drive", RGB(134, 142, 150) }, { "package", RGB(47, 174, 102) }, { "search", RGB(42, 125, 225) },
 };
 int icon_ears = 1;                   /* 0 none, 1 rounded cat ears, 2 pointed cat ears (Settings > Apparence) */
 void icon_tile(const char *name, int x, int y, int sz) {
