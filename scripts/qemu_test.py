@@ -15,7 +15,7 @@ ap.add_argument('--quick', action='store_true') # boot + one screenshot only
 ap.add_argument('--iso', default='')              # boot this ISO (BIOS/GRUB) instead of kernel+initrd
 ap.add_argument('--serial-log', default='')
 ap.add_argument('--kbd', default='us')          # guest keyboard layout (miaou.kbd=)
-ap.add_argument('--scenario', default='full', choices=['full', 'fr', 'res', 'iso'])
+ap.add_argument('--scenario', default='full', choices=['full', 'fr', 'res', 'iso', 'desk'])
 args = ap.parse_args()
 root = Path(args.root); build = root / 'build'; shots = build / 'screenshots'
 shots.mkdir(parents=True, exist_ok=True)
@@ -26,6 +26,7 @@ for p in (qmp_path, serial):
     try: p.unlink()
     except FileNotFoundError: pass
 append = 'console=tty0 console=ttyS0,115200n8 rdinit=/init panic=5 miaou.kbd=%s miaou.theme=%s' % (args.kbd, args.theme)
+if args.scenario in ('fr', 'res', 'desk') or args.quick: append += ' miaou.autologin=miaou'
 if args.res: append += ' video=Virtual-1:' + args.res
 boot = ['-machine', 'pc', '-cdrom', args.iso, '-boot', 'd'] if args.iso else ['-machine', 'q35', '-kernel', kernel, '-initrd', initrd, '-append', append]
 cmd = ['qemu-system-x86_64', *boot, '-m', '768M', '-smp', '2', '-accel', 'kvm', '-accel', 'tcg',
@@ -143,8 +144,23 @@ for line in log_text().splitlines():
         geom = line.split()[1]; scale = int(line.split('scale=')[1])
 W, H = (int(v) for v in geom.split('x'))
 print(f'Desktop up after {time.time() - t0:.1f}s, mode {W}x{H}, ui scale {scale}%')
-time.sleep(6)                                           # let the DHCP lease arrive and the splash toast settle
-shot('01-desktop')
+def wait_marker(m, timeout=30):
+    t1 = time.time()
+    while time.time() - t1 < timeout:
+        if m in log_text(): return
+        time.sleep(0.3)
+    fail('serial marker not seen: ' + m)
+if args.scenario == 'iso':
+    wait_marker('MIAOUDESK_LOGIN_SCREEN'); time.sleep(3); shot('01-login-screen')
+elif args.scenario == 'full' and not args.quick:
+    wait_marker('MIAOUDESK_LOGIN_SCREEN'); time.sleep(2.5); shot('00-login')
+    typ('oops\n'); time.sleep(0.3); shot('00b-login-wrong-password'); wait_marker('MIAOUDESK_LOGIN_FAIL'); time.sleep(0.8)
+    typ('miaou\n'); wait_marker('MIAOUDESK_LOGIN_OK miaou'); time.sleep(1.5)
+    time.sleep(4)
+    shot('01-desktop')
+else:
+    time.sleep(6)                                           # let the DHCP lease arrive and the splash toast settle
+    shot('01-desktop')
 
 def S(n): return (n * scale + 50) // 100
 # Plasma-style layout (mirrors src/desk/desk.c): panel at the bottom, launcher on the left, one task icon per app
@@ -154,7 +170,18 @@ def launcher_xy(): return S(24), H - PANEL // 2
 def dock_xy(i): return S(52) + i * S(48) + S(24), H - PANEL // 2
 def opened(app): return f'MIAOUDESK_APP_OPEN {app}' in log_text()
 
-if args.scenario == 'iso':
+def desktop_selection():
+    # rubber-band selection with the real pointer, then the context menu on a selected icon
+    goto(S(260), S(30)); press(True)
+    for i in range(1, 6): goto(S(260) + (S(40) - S(260)) * i // 5, S(30) + (S(250) - S(30)) * i // 5)
+    shot('01b-selection-band'); press(False); time.sleep(0.4); shot('01c-selected')
+    click(S(16) + S(46), S(16) + S(96) + S(45), button='right'); time.sleep(0.5); shot('01d-context-item')
+    key('esc'); time.sleep(0.4)
+    click(S(600), S(500)); time.sleep(0.4)                     # click on empty desktop clears the selection
+
+if args.scenario == 'desk':
+    desktop_selection()
+elif args.scenario == 'iso':
     time.sleep(3)
 elif args.scenario == 'fr':
     key('meta_l', 't'); time.sleep(2.0)
@@ -164,6 +191,7 @@ elif args.scenario == 'fr':
 elif args.scenario == 'res':
     key('meta_l', 'e'); time.sleep(2.0); shot('01-res-files')
 elif not args.quick:
+    desktop_selection()
     # --- start menu via the real mouse
     click(*launcher_xy()); time.sleep(0.6); shot('02-menu'); key('esc')
     # --- Terminal from the dock, then real commands through the keyboard

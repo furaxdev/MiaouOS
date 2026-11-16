@@ -70,7 +70,8 @@ static void load_dir(Win *w, FS *f, const char *path) {
     char t[64]; const char *base = strrchr(real, '/'); snprintf(t, sizeof t, "Fichiers — %s", base && base[1] ? base + 1 : "/");
     set_title(w, t);
 }
-static void *files_create(Win *w) { FS *f = calloc(1, sizeof *f); f->last_row = -1; load_dir(w, f, "/root"); return f; }
+static void *files_create(Win *w) { FS *f = calloc(1, sizeof *f); f->last_row = -1; load_dir(w, f, cur_home); return f; }
+static void files_open_arg(Win *w, const char *path) { FS *f = w->st; struct stat st; if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) load_dir(w, f, path); }
 static void files_destroy(Win *w) { FS *f = w->st; free(f->e); free(f->prev); img_free(f->img); free(f); }
 
 static void go_parent(Win *w, FS *f) { char p[520]; snprintf(p, sizeof p, "%s/..", f->cwd); load_dir(w, f, p); }
@@ -99,7 +100,7 @@ static void do_prompt(Win *w, FS *f) {
 static void files_action(Win *w, int id, int mx, int my, int btn) {
     FS *f = w->st; (void)mx; (void)my; (void)btn;
     if (id >= A_ROW) { f->sel = id - A_ROW; f->last_row = f->sel; load_preview(f); return; }
-    if (id >= A_PLACE && id < A_PLACE + 10) { load_dir(w, f, PLACES[id - A_PLACE].path); return; }
+    if (id >= A_PLACE && id < A_PLACE + 10) { load_dir(w, f, id == A_PLACE ? cur_home : PLACES[id - A_PLACE].path); return; }
     switch (id) {
     case A_UP: go_parent(w, f); break;
     case A_REFRESH: { char k[512]; snprintf(k, sizeof k, "%s", f->cwd); load_dir(w, f, k); } break;
@@ -149,7 +150,7 @@ static void files_draw(Win *w, int x, int y, int cw, int ch) {
     gfx_vline(x + side, y, ch, TH.line, 255);
     text_draw(F_UI, x + S(16), y + S(12), "Lieux", TH.dim, S(12));
     for (int i = 0; i < 6; i++) {
-        int sel = !strcmp(f->cwd, PLACES[i].path);
+        int sel = !strcmp(f->cwd, i == 0 ? cur_home : PLACES[i].path);
         ui_tab(w, x + S(8), y + S(34) + i * S(38), side - S(16), S(34), PLACES[i].name, PLACES[i].icon, A_PLACE + i, sel);
     }
     int bx = x + side + S(10);
@@ -242,4 +243,4 @@ static void files_draw(Win *w, int x, int y, int cw, int ch) {
     }
 }
 
-App app_files = { "files", "Fichiers", "files", "Parcourir, prévisualiser et ranger", 960, 600, files_create, files_destroy, files_draw, files_action, files_mouse, files_key, NULL };
+App app_files = { "files", "Fichiers", "files", "Parcourir, prévisualiser et ranger", 960, 600, files_create, files_destroy, files_draw, files_action, files_mouse, files_key, NULL, files_open_arg };

@@ -1,0 +1,10 @@
+Bienvenue sur MiaouOS.
+
+Ce fichier est sur votre bureau : double-cliquez pour l'ouvrir,
+glissez un rectangle pour en sélectionner plusieurs.
+
+Quelques raccourcis
+  Super          lanceur d'applications
+  Super + L      verrouiller la session
+  Alt + Tab      changer de fenêtre
+  Ctrl+Alt+T     terminal

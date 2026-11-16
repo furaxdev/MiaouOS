@@ -18,6 +18,8 @@
 #define STBI_NO_LINEAR
 #define STBI_NO_HDR
 #include "third_party/stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "third_party/stb_image_write.h"
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "third_party/stb_truetype.h"
 
@@ -152,31 +154,70 @@ void gfx_circle(int cx, int cy, int r, u32 c, int a) {
         }
 }
 
-void gfx_shadow(int x, int y, int w, int h, int r, int spread, int maxa) {
-    int x0 = x - spread, y0 = y - spread, x1 = x + w + spread, y1 = y + h + spread;
-    for (int yy = y0; yy < y1; yy++) {
-        if (yy < cy0 || yy >= cy1) continue;
-        int mid = yy >= y + r && yy < y + h - r;
-        for (int xx = x0; xx < x1; xx++) {
-            if (mid && xx >= x && xx < x + w) { xx = x + w - 1; continue; }
-            if (xx < cx0 || xx >= cx1) continue;
-            float qx = fabsf((float)xx + 0.5f - (x + w / 2.0f)) - (w / 2.0f - r);
-            float qy = fabsf((float)yy + 0.5f - (y + h / 2.0f)) - (h / 2.0f - r);
-            float ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0;
-            float m = qx > qy ? qx : qy;
-            float d = sqrtf(ox * ox + oy * oy) + (m < 0 ? m : 0) - (float)r;
+/* Soft shadow: the alpha mask depends only on (w,h,r,spread), so it is computed once and cached. */
+static struct { int w, h, r, sp; unsigned char *m; } scache[8];
+static int snext;
+static unsigned char *shadow_mask(int w, int h, int r, int spread) {
+    for (int i = 0; i < 8; i++) if (scache[i].m && scache[i].w == w && scache[i].h == h && scache[i].r == r && scache[i].sp == spread) return scache[i].m;
+    int mw = w + 2 * spread, mh = h + 2 * spread;
+    unsigned char *m = calloc((size_t)mw * mh, 1);
+    for (int yy = 0; yy < mh; yy++)
+        for (int xx = 0; xx < mw; xx++) {
+            float qx = fabsf((float)xx + 0.5f - mw / 2.0f) - (w / 2.0f - r);
+            float qy = fabsf((float)yy + 0.5f - mh / 2.0f) - (h / 2.0f - r);
+            float ox = qx > 0 ? qx : 0, oy = qy > 0 ? qy : 0, mx = qx > qy ? qx : qy;
+            float d = sqrtf(ox * ox + oy * oy) + (mx < 0 ? mx : 0) - (float)r;
             if (d <= 0 || d >= spread) continue;
             float t = 1.0f - d / (float)spread;
-            put(xx, yy, 0x000000, (int)(maxa * t * t));
+            m[(size_t)yy * mw + xx] = (unsigned char)(t * t * 255);
+        }
+    free(scache[snext].m);
+    scache[snext].w = w; scache[snext].h = h; scache[snext].r = r; scache[snext].sp = spread; scache[snext].m = m;
+    snext = (snext + 1) % 8;
+    return m;
+}
+void gfx_shadow(int x, int y, int w, int h, int r, int spread, int maxa) {
+    if (w <= 0 || h <= 0) return;
+    unsigned char *m = shadow_mask(w, h, r, spread);
+    int mw = w + 2 * spread, mh = h + 2 * spread, x0 = x - spread, y0 = y - spread;
+    for (int yy = 0; yy < mh; yy++) {
+        int py = y0 + yy; if (py < cy0 || py >= cy1) continue;
+        int mid = yy >= spread + r && yy < spread + h - r;
+        for (int xx = 0; xx < mw; xx++) {
+            if (mid && xx >= spread && xx < spread + w) { xx = spread + w - 1; continue; }
+            int px = x0 + xx; if (px < cx0 || px >= cx1) continue;
+            int a = m[(size_t)yy * mw + xx]; if (!a) continue;
+            u32 *p = &scene[(size_t)py * SW + px]; *p = mixa(*p, 0, a * maxa / 255);
         }
     }
 }
 
 void gfx_blit(const u32 *src, int sw, int sh, int dx, int dy) {
+    int xa = dx < cx0 ? cx0 : dx, xb = dx + sw > cx1 ? cx1 : dx + sw;
+    if (xb <= xa) return;
     for (int y = 0; y < sh; y++) {
         int yy = dy + y; if (yy < cy0 || yy >= cy1) continue;
-        for (int x = 0; x < sw; x++) { int xx = dx + x; if (xx < cx0 || xx >= cx1) continue; scene[(size_t)yy * SW + xx] = src[(size_t)y * sw + x]; }
+        memcpy(&scene[(size_t)yy * SW + xa], &src[(size_t)y * sw + (xa - dx)], (size_t)(xb - xa) * 4);
     }
+}
+
+/* snapshot of a scene region, used to fade an element in/out: draw it, then blend with the snapshot */
+Snap gfx_snap(int x, int y, int w, int h) {
+    Snap s = { NULL, 0, 0, 0, 0 };
+    int x0 = x < 0 ? 0 : x, y0 = y < 0 ? 0 : y, x1 = x + w > SW ? SW : x + w, y1 = y + h > SH ? SH : y + h;
+    if (x1 <= x0 || y1 <= y0) return s;
+    s.x = x0; s.y = y0; s.w = x1 - x0; s.h = y1 - y0;
+    s.px = malloc((size_t)s.w * s.h * 4);
+    for (int j = 0; j < s.h; j++) memcpy(&s.px[(size_t)j * s.w], &scene[(size_t)(y0 + j) * SW + x0], (size_t)s.w * 4);
+    return s;
+}
+void gfx_snap_blend(Snap *s, int alpha) {      /* alpha: opacity of what was drawn since the snapshot (0..255) */
+    if (!s->px) return;
+    for (int j = 0; j < s->h; j++) {
+        u32 *d = &scene[(size_t)(s->y + j) * SW + s->x]; const u32 *o = &s->px[(size_t)j * s->w];
+        for (int i = 0; i < s->w; i++) d[i] = mixa(o[i], d[i], alpha);
+    }
+    free(s->px); s->px = NULL;
 }
 
 /* ------------------------------------------------------------------ presentation */
@@ -430,6 +471,43 @@ Img *img_get(const char *name, int size) {
     return sc;
 }
 
+Img *img_scale_smooth(Img *src, int w, int h) {
+    Img *o = malloc(sizeof *o); o->mono = 0; o->w = w; o->h = h; o->px = malloc((size_t)w * h * 4);
+    for (int y = 0; y < h; y++) {
+        float fy = ((float)y + 0.5f) * src->h / h - 0.5f; int y0 = (int)floorf(fy); float ty = fy - y0; int y1 = y0 + 1;
+        if (y0 < 0) y0 = 0; if (y1 >= src->h) y1 = src->h - 1; if (y0 >= src->h) y0 = src->h - 1;
+        for (int x = 0; x < w; x++) {
+            float fx = ((float)x + 0.5f) * src->w / w - 0.5f; int x0 = (int)floorf(fx); float tx = fx - x0; int x1 = x0 + 1;
+            if (x0 < 0) x0 = 0; if (x1 >= src->w) x1 = src->w - 1; if (x0 >= src->w) x0 = src->w - 1;
+            u32 c00 = src->px[(size_t)y0 * src->w + x0], c10 = src->px[(size_t)y0 * src->w + x1], c01 = src->px[(size_t)y1 * src->w + x0], c11 = src->px[(size_t)y1 * src->w + x1];
+            u32 out = 0xff000000u;
+            for (int sh = 0; sh <= 16; sh += 8) {
+                float a = (float)((c00 >> sh) & 255) * (1 - tx) + (float)((c10 >> sh) & 255) * tx, b = (float)((c01 >> sh) & 255) * (1 - tx) + (float)((c11 >> sh) & 255) * tx;
+                out |= (u32)(a * (1 - ty) + b * ty) << sh;
+            }
+            o->px[(size_t)y * w + x] = out;
+        }
+    }
+    return o;
+}
+static Img *wall_blur[2];
+Img *wallpaper_blur(int night) {          /* strongly downscaled then smoothly upscaled = cheap blur, cached */
+    int k = night ? 1 : 0;
+    if (wall_blur[k] && wall_blur[k]->w == SW && wall_blur[k]->h == SH) return wall_blur[k];
+    img_free(wall_blur[k]); wall_blur[k] = NULL;
+    Img *wp = wallpaper(night); if (!wp) return NULL;
+    Img *small = img_scale(wp, SW / 24 > 8 ? SW / 24 : 8, SH / 24 > 8 ? SH / 24 : 8);
+    wall_blur[k] = img_scale_smooth(small, SW, SH);
+    img_free(small);
+    return wall_blur[k];
+}
+int gfx_save_png(const char *path) {
+    unsigned char *rgb = malloc((size_t)SW * SH * 3);
+    for (int i = 0; i < SW * SH; i++) { u32 c = scene[i]; rgb[i * 3] = (unsigned char)(c >> 16); rgb[i * 3 + 1] = (unsigned char)(c >> 8); rgb[i * 3 + 2] = (unsigned char)c; }
+    int ok = stbi_write_png(path, SW, SH, 3, rgb, SW * 3);
+    free(rgb);
+    return ok ? 0 : -1;
+}
 static Img *wall[2];
 Img *wallpaper(int night) {
     int k = night ? 1 : 0;

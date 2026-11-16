@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#include <grp.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
@@ -186,10 +187,13 @@ static void *term_create(Win *w) {
                 dup2(s, 0); dup2(s, 1); dup2(s, 2);
                 if (s > 2) close(s);
                 for (int fd = 3; fd < 64; fd++) close(fd);
-                setenv("TERM", "linux", 1); setenv("HOME", "/root", 1); setenv("USER", "root", 1);
+                const char *un = cur_user ? cur_user->name : "root";
+                char ps1[300]; snprintf(ps1, sizeof ps1, "\\[\\033[1;35m\\]%s@miaouos\\[\\033[0m\\]:\\[\\033[1;36m\\]\\w\\[\\033[0m\\]\\$ ", un);
+                if (cur_user && !cur_user->admin) { if (setgroups(0, NULL) < 0 || setgid((gid_t)cur_user->gid) < 0 || setuid((uid_t)cur_user->uid) < 0) _exit(1); }
+                setenv("TERM", "linux", 1); setenv("HOME", cur_home, 1); setenv("USER", un, 1); setenv("LOGNAME", un, 1);
                 setenv("PATH", "/bin:/sbin:/usr/bin:/usr/sbin:/opt/miaou/bin", 1);
-                setenv("PS1", "\\[\\033[1;35m\\]root@miaouos\\[\\033[0m\\]:\\[\\033[1;36m\\]\\w\\[\\033[0m\\]\\$ ", 1);
-                if (chdir("/root") < 0) {}
+                setenv("PS1", ps1, 1);
+                if (chdir(cur_home) < 0) { if (chdir("/") < 0) {} }
                 execl("/bin/sh", "-sh", (char *)NULL);
                 _exit(127);
             }

@@ -8,7 +8,7 @@ WORK="${2:-$ROOT/build/work}"
 mkdir -p "$WORK" "$ROOTFS"/{bin,sbin,etc,proc,sys,dev,tmp,run,root,usr/bin,usr/sbin,usr/share/miaou/{fonts,icons,wallpapers,licenses,packages},usr/share/udhcpc,usr/lib/miaou,var/lib/miaou/repository,var/cache/miaou,opt/miaou/packages}
 
 # --- MiaouDesk (C, static) ---
-gcc -std=gnu11 -O2 -g -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -static \
+gcc -std=gnu11 -O2 -g -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -static \
   "$ROOT"/src/desk/*.c -o "$ROOTFS/usr/bin/miaoudesk-gui" -lm
 # --- assets (fonts, icons, wallpapers) ---
 install -m 0644 "$ROOT"/assets/fonts/*.ttf "$ROOTFS/usr/share/miaou/fonts/"
@@ -29,10 +29,18 @@ install -D -m 0755 "$ROOT/src/etc/udhcpc.script" "$ROOTFS/usr/share/udhcpc/defau
 install -D -m 0644 "$ROOT/src/etc/profile" "$ROOTFS/etc/profile"
 install -D -m 0644 "$ROOT/src/etc/os-release" "$ROOTFS/etc/os-release"
 printf 'miaouos\n' > "$ROOTFS/etc/hostname"
-printf 'root:x:0:0:root:/root:/bin/sh\n' > "$ROOTFS/etc/passwd"; printf 'root:x:0:\n' > "$ROOTFS/etc/group"
 printf '127.0.0.1 localhost miaouos\n' > "$ROOTFS/etc/hosts"
 printf 'MiaouOS 0.2 - Le Linux des chats !\n' > "$ROOTFS/etc/issue"
 printf 'nameserver 10.0.2.3\n' > "$ROOTFS/etc/resolv.conf"
+# --- default accounts (password hash = sha256(salt + password)) and the skeleton copied into every new home
+mkdir -p "$ROOTFS/etc/miaou" "$ROOTFS/home" "$ROOTFS/usr/share/miaou/skel"/{Bureau/Documents,Images}
+salt_miaou=3f9a1c7d5b2e8a60
+hash_miaou="$(printf '%s' "${salt_miaou}miaou" | sha256sum | cut -d' ' -f1)"
+printf 'miaou:1000:1000:1:%s:%s:Miaou\ninvite:1001:1001:0:-:-:Invité\n' "$salt_miaou" "$hash_miaou" > "$ROOTFS/etc/miaou/users"
+printf 'root:x:0:0:root:/root:/bin/sh\nmiaou:x:1000:1000:Miaou:/home/miaou:/bin/sh\ninvite:x:1001:1001:Invité:/home/invite:/bin/sh\n' > "$ROOTFS/etc/passwd"
+printf 'root:x:0:\nmiaou:x:1000:\ninvite:x:1001:\n' > "$ROOTFS/etc/group"
+cp "$ROOT/src/etc/Bienvenue.txt" "$ROOTFS/usr/share/miaou/skel/Bureau/Bienvenue.txt"
+cp "$ROOT/assets/wallpapers/night.jpg" "$ROOTFS/usr/share/miaou/skel/Bureau/Paysage.jpg"
 # --- packages (.miaou archives + catalogue manifests) ---
 for pdir in "$ROOT"/packages/*/; do
   name="$(basename "$pdir")"

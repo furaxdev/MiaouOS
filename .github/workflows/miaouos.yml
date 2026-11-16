@@ -27,7 +27,7 @@ jobs:
 
       - name: Check shell syntax and package engine
         run: |
-          gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -static ./src/desk/*.c -o /tmp/miaoudesk-gui-check -lm
+          gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -static ./src/desk/*.c -o /tmp/miaoudesk-gui-check -lm
           bash -n ./scripts/build.sh ./scripts/install-miaou.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh ./scripts/test-iso-qemu.sh ./scripts/test-qemu.sh
           python3 -m py_compile ./scripts/qemu_test.py
           sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/bin/miaou-cursors ./src/usr/bin/miaou-neko ./src/usr/bin/miaou-settings ./src/usr/bin/miaou-files ./src/usr/bin/miaou-monitor ./src/usr/bin/miaou-network ./src/usr/bin/miaou-run ./src/usr/bin/miaou-apps ./src/usr/lib/miaou/package-engine.sh ./src/usr/lib/miaou/ui.sh ./src/usr/lib/miaou/cursors.sh ./src/usr/lib/miaou/neko.sh ./src/etc/udhcpc.script ./src/etc/profile ./packages/miaou-fortune/payload/usr/bin/miaou-fortune ./packages/miaou-sysinfo/payload/usr/bin/miaou-sysinfo

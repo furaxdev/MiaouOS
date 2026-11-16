@@ -32,6 +32,12 @@ void desk_mode_changed(void);
 void gfx_present(void);                    /* scene -> framebuffer (whole) */
 void gfx_present_rect(int x, int y, int w, int h);
 u32  gfx_mix(u32 a, u32 b, int t256);
+typedef struct { u32 *px; int x, y, w, h; } Snap;
+Snap gfx_snap(int x, int y, int w, int h);
+void gfx_snap_blend(Snap *s, int alpha);
+Img *img_scale_smooth(Img *src, int w, int h);
+Img *wallpaper_blur(int night);
+int  gfx_save_png(const char *path);
 
 Font *font_load(const char *path);
 int   text_w(Font *f, const char *s, int px);
@@ -99,10 +105,12 @@ typedef struct App {
     void (*mouse)(Win *w, int type, int x, int y, int arg);   /* raw mouse in content (move/up/wheel) */
     void (*key)(Win *w, int key, int mods);
     int  (*tick)(Win *w);                       /* returns 1 if redraw needed */
+    void (*open_arg)(Win *w, const char *path); /* open a file/folder given by the shell */
 } App;
 
 struct Win {
     App *app; void *st;
+    long t_open, t_die, t_min, t_geo; int dying, minimizing, gx, gy, gw, gh, tx, ty, tw, th, ws, top;
     int x, y, w, h, minimized, maximized, ox, oy, ow, oh, closing, snapped;
     char title[64];
     struct { int x, y, w, h, id; } z[MAX_ZONES];
@@ -119,6 +127,23 @@ int  hover(int x, int y, int w, int h);          /* pointer inside rect? */
 void dirty(void);
 void toast(const char *fmt, ...);
 Win *open_app(const char *id);
+Win *open_app_arg(const char *id, const char *arg);
+void open_path(const char *path);
+long now_ms(void);
+extern int anim_enabled;
+extern char cur_home[96];
+void fo_unique(const char *dir, const char *name, char *out, size_t n);
+int fo_trash(const char *path);
+int fo_trash_empty(void);
+int fo_restore(const char *trashed_name);
+void fo_clip_set(char paths[][512], int n, int cut);
+int fo_clip_count(void);
+int fo_clip_cut(void);
+int fo_paste(const char *destdir);
+int fo_mkdir(const char *path);
+int fo_touch(const char *path);
+int fo_run(char *const argv[]);
+void fo_mkdir_p(const char *path);
 void close_win(Win *w);
 void set_title(Win *w, const char *t);
 extern Font *F_UI, *F_BOLD, *F_MONO;
@@ -144,6 +169,34 @@ Job *job_start(const char *cmd);
 int  job_poll(Job *j);            /* returns 1 if new data / state change */
 void job_free(Job *j);
 void job_kill(Job *j);
+
+/* ---- session: users, login screen, lock ---- */
+typedef struct User { char name[32], display[48], salt[20], hash[68], home[96]; int uid, gid, admin; } User;
+extern User users[16];
+extern int nusers;
+extern User *cur_user;
+extern int locked;
+void session_init(void);                           /* load /etc/miaou/users */
+int  session_autologin(const char *name);
+void session_lock(void);
+void session_logout(void);
+int  session_is_admin(void);
+int  login_tick(void);                             /* returns 1 while the login screen animates */
+void login_draw(void);
+void login_key(int key, int mods);
+void login_click(int x, int y);
+int  login_fading(void);
+int  user_add(const char *name, const char *display, const char *pw, int admin);
+int  user_del(const char *name);
+int  user_setpw(const char *name, const char *pw);
+void users_save(void);
+int  kbd_caps(void);
+void cfg_reload(const char *path);
+void apply_config(void);
+void slog_marker(const char *m);
+void slog_marker2(const char *m, const char *arg);
+int login_fade_alpha(void);
+void desk_close_all(void);
 
 extern App app_terminal, app_files, app_settings, app_monitor, app_network, app_store, app_browser, app_about;
 extern App *APPS[];
