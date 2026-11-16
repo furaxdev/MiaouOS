@@ -151,7 +151,9 @@ static void set_draw(Win *w, int x, int y, int cw, int ch) {
         label(cx, cy + S(164), "La disposition s'applique tout de suite, sans redémarrage. Le voyant Verr. Maj. s'affiche sur l'écran de connexion.", TH.dim, S(13), 0);
     } else if (s->tab == 3) {
         time_t now = time(NULL); struct tm lt; char hm[48] = "", d[64] = "";
-        if (localtime_r(&now, &lt)) { strftime(hm, sizeof hm, "%H:%M:%S", &lt); strftime(d, sizeof d, "%A %d %B %Y", &lt); }
+        static const char *DJ[] = { "dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi" };
+        static const char *MJ[] = { "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre" };
+        if (localtime_r(&now, &lt)) { strftime(hm, sizeof hm, "%H:%M:%S", &lt); snprintf(d, sizeof d, "%s %d %s %d", DJ[lt.tm_wday], lt.tm_mday, MJ[lt.tm_mon], lt.tm_year + 1900); }
         label(cx, cy, hm, TH.text, S(44), 0); label(cx, cy + S(58), d, TH.dim, px, 0);
         label(cx, cy + S(96), "Fuseau horaire", TH.dim, S(12), 1);
         const char *cur = cfg_get("tz", ""); int bx = cx, by = cy + S(120);
@@ -185,8 +187,8 @@ static void set_draw(Win *w, int x, int y, int cw, int ch) {
         label(cx, cy + S(226), "Les comptes standard n'ont accès qu'à leurs fichiers ; leur terminal tourne avec leurs droits.", TH.dim, S(13), 0);
     } else if (s->tab == 6) {
         static const char *SC[][2] = { { "Super", "Lanceur d'applications" }, { "Super + Espace  ou  Alt + F2", "Exécuter : applications, calculs, commandes" }, { "Super + L", "Verrouiller la session" }, { "Super + A", "Centre de contrôle (calendrier, notifications)" },
-            { "Super + D", "Afficher le bureau" }, { "Super + T / E / B", "Terminal / Fichiers / Navigateur" }, { "Super + flèches", "Aimanter, agrandir, réduire la fenêtre" }, { "Alt + Tab", "Changer de fenêtre" }, { "Alt + glisser", "Déplacer une fenêtre depuis n'importe où" },
-            { "Ctrl + Alt + ← →", "Changer de bureau virtuel (Maj : emporter la fenêtre)" }, { "Alt + F4", "Fermer la fenêtre" }, { "Impr. écran", "Capture d'écran dans Images" }, { "Ctrl + Alt + T", "Nouveau terminal" }, { "Clic droit sur le bureau", "Nouveau dossier, fichier, coller…" } };
+            { "Super + D", "Afficher le bureau" }, { "Super + T / E / B", "Terminal / Fichiers / Navigateur" }, { "Super + flèches directionnelles", "Aimanter, agrandir, réduire la fenêtre" }, { "Alt + Tab", "Changer de fenêtre" }, { "Alt + glisser", "Déplacer une fenêtre depuis n'importe où" },
+            { "Ctrl + Alt + gauche / droite", "Changer de bureau virtuel (Maj : emporter la fenêtre)" }, { "Alt + F4", "Fermer la fenêtre" }, { "Impr. écran", "Capture d'écran dans Images" }, { "Ctrl + Alt + T", "Nouveau terminal" }, { "Clic droit sur le bureau", "Nouveau dossier, fichier, coller…" } };
         for (int i = 0; i < 14; i++) { int ry = cy + i * S(32); label(cx, ry, SC[i][0], TH.text, S(13), 1); label(cx + S(270), ry, SC[i][1], TH.dim, S(13), 0); }
     } else {
         struct utsname u; uname(&u);

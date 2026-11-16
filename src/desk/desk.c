@@ -71,11 +71,12 @@ long now_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); retur
 static void slog(const char *fmt, ...);
 void slog_marker(const char *m) { slog("%s", m); }
 void slog_marker2(const char *m, const char *arg) { slog("%s %s", m, arg); }
+static int serial_fd = -2;      /* opened once as root: later file access may run with a standard user's fsuid */
 static void slog(const char *fmt, ...) {
     char b[160]; va_list ap; va_start(ap, fmt); vsnprintf(b, sizeof b - 2, fmt, ap); va_end(ap);
     strcat(b, "\n");
-    int fd = open("/dev/ttyS0", O_WRONLY | O_NOCTTY | O_CLOEXEC);
-    if (fd >= 0) { if (write(fd, b, strlen(b)) < 0) {} close(fd); }
+    if (serial_fd == -2) serial_fd = open("/dev/ttyS0", O_WRONLY | O_NOCTTY | O_CLOEXEC);
+    if (serial_fd >= 0) { if (write(serial_fd, b, strlen(b)) < 0) {} }
 }
 
 /* ================================================================== theme */
@@ -1029,11 +1030,10 @@ void power_action(int reboot_flag) {
 static void on_signal(int sig) { restore_tty(); _exit(128 + sig); }
 /* Crash handler: report the signal and a raw backtrace on the serial console (resolve with addr2line), then leave. */
 static void on_crash(int sig) {
-    int fd = open("/dev/ttyS0", O_WRONLY | O_NOCTTY);
+    int fd = serial_fd >= 0 ? serial_fd : open("/dev/ttyS0", O_WRONLY | O_NOCTTY);
     if (fd >= 0) {
         char b[64]; int n = snprintf(b, sizeof b, "MIAOUDESK_CRASH signal %d\n", sig); if (write(fd, b, (size_t)n) < 0) {}
         void *bt[24]; int k = backtrace(bt, 24); backtrace_symbols_fd(bt, k, fd);
-        close(fd);
     }
     restore_tty();
     _exit(128 + sig);
@@ -1487,7 +1487,7 @@ int main(int argc, char **argv) {
     signal(SIGINT, on_signal); signal(SIGTERM, on_signal); signal(SIGHUP, on_signal);
     signal(SIGPIPE, SIG_IGN);
     signal(SIGSEGV, on_crash); signal(SIGABRT, on_crash); signal(SIGFPE, on_crash); signal(SIGBUS, on_crash);
-    kbd_init(); cfg_load();
+    kbd_init(); slog("MIAOUDESK_START"); cfg_load();
     if (gfx_open()) { slog("MIAOUDESK_ERR framebuffer unavailable"); return 1; }
     char path[128];
     F_UI = font_load("/usr/share/miaou/fonts/Nunito-Regular.ttf");

@@ -46,6 +46,7 @@ static void store_action(Win *w, int id, int mx, int my, int btn) {
     if (id >= ST_ROW) { s->sel = id - ST_ROW; return; }
     if (s->sel < 0 || s->sel >= s->n) return;
     Pkg *p = &s->p[s->sel];
+    if ((id == ST_INSTALL || id == ST_REMOVE) && !session_is_admin()) { toast("Réservé aux administrateurs"); return; }
     if (id == ST_INSTALL) { snprintf(cmd, sizeof cmd, "miaou-get install /usr/share/miaou/packages/%s.miaou 2>&1", p->name); run(s, cmd, cmd); }
     else if (id == ST_REMOVE) { snprintf(cmd, sizeof cmd, "miaou-get remove %s 2>&1", p->name); run(s, cmd, cmd); }
     else if (id == ST_RUN) { snprintf(cmd, sizeof cmd, "/opt/miaou/packages/%s/usr/bin/%s 2>&1", p->name, p->name); run(s, cmd, cmd); }

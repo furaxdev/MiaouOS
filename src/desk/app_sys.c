@@ -73,6 +73,7 @@ static void mon_action(Win *w, int id, int mx, int my, int btn) {
     if (id >= MN_ROW) { m->sel_pid = m->p[id - MN_ROW].pid; return; }
     if (id == MN_SORT_CPU) m->sortk = 0; else if (id == MN_SORT_MEM) m->sortk = 1; else if (id == MN_SORT_PID) m->sortk = 2;
     else if ((id == MN_KILL || id == MN_FORCE) && m->sel_pid) {
+        if (!session_is_admin()) { toast("Réservé aux administrateurs"); return; }
         if (m->sel_pid == 1 || m->sel_pid == getpid()) { toast("Ce processus est protégé"); return; }
         if (kill(m->sel_pid, id == MN_KILL ? SIGTERM : SIGKILL) == 0) toast("Signal envoyé au processus %d", m->sel_pid); else toast("Échec : %s", strerror(errno));
         m->last = 0;
@@ -208,6 +209,7 @@ static void net_action(Win *w, int id, int mx, int my, int btn) {
     Net *n = w->st; (void)mx; (void)my; (void)btn; char cmd[256];
     const char *ifn = first_iface(n);
     if (id == N_REFRESH) { net_scan(n); return; }
+    if (id == N_DHCP && !session_is_admin()) { toast("Réservé aux administrateurs"); return; }
     if (id == N_DHCP) {
         if (!ifn) { toast("Aucune interface réseau"); return; }
         snprintf(cmd, sizeof cmd, "ip link set lo up 2>&1; ip link set %s up 2>&1; udhcpc -i %s -n -q -t 4 -T 2 -s /usr/share/udhcpc/default.script 2>&1", ifn, ifn);
