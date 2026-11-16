@@ -108,6 +108,11 @@ static void load_done(Br *b, const char *body, const char *url) {
     if (!strchr(body, '<')) {                       /* plain text file: show it as preformatted text */
         Node *pre = wn_new(pg, 0, "pre"); Node *t = wn_new(pg, 1, NULL); t->text = strdup(body); wn_append(pre, t); wn_append(pg->doc, pre);
     } else wn_parse(pg, body, pg->doc);
+    if (!wn_find_tag(pg->doc, "body")) {            /* fragments get the implicit <html><body> (and its 8px margin) like a real browser */
+        Node *html = wn_new(pg, 0, "html"), *body = wn_new(pg, 0, "body");
+        while (pg->doc->first) wn_append(body, pg->doc->first);
+        wn_append(html, body); wn_append(pg->doc, html);
+    }
     Node *base = wn_find_tag(pg->doc, "base"); if (base && wn_attr(base, "href")) { char full[700]; resolve(url, wn_attr(base, "href"), full, sizeof full); snprintf(pg->base, sizeof pg->base, "%s", full); }
     int links = 0; collect_css(b, pg, pg->doc, &links);
     js_page_init(pg); js_run_scripts(pg);

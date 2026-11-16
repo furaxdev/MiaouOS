@@ -22,9 +22,11 @@ install -m 0644 "$ROOT"/assets/wallpapers/*.jpg "$ROOTFS/usr/share/miaou/wallpap
 # --- shell scripts and libraries ---
 install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
 install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"
-for f in miaou miaou-get miaou-cursors miaou-neko miaou-settings miaou-files miaou-monitor miaou-network miaou-run miaou-apps; do
+for f in miaou miaou-get miaou-cursors miaou-neko miaou-settings miaou-files miaou-monitor miaou-network miaou-run miaou-apps miaou-wifi; do
   install -D -m 0755 "$ROOT/src/usr/bin/$f" "$ROOTFS/usr/bin/$f"
 done
+# Wi-Fi tool names answer through miaou-wifi (no more "command not found" / exit 127 without wireless hardware)
+for n in iwconfig iwlist iw nmcli wpa_cli wpa_supplicant rfkill wifi wifi-menu; do [ -e "$ROOTFS/usr/bin/$n" ] || [ -e "$ROOTFS/bin/$n" ] || [ -e "$ROOTFS/sbin/$n" ] || [ -e "$ROOTFS/usr/sbin/$n" ] || ln -sf miaou-wifi "$ROOTFS/usr/bin/$n"; done
 for f in package-engine ui cursors neko; do install -D -m 0644 "$ROOT/src/usr/lib/miaou/$f.sh" "$ROOTFS/usr/lib/miaou/$f.sh"; done
 ln -sf /usr/bin/miaoudesk "$ROOTFS/bin/miaoudesk"; ln -sf /usr/bin/miaou "$ROOTFS/bin/miaou"; ln -sf /usr/bin/miaou-get "$ROOTFS/bin/miaou-get"
 install -D -m 0755 "$ROOT/src/etc/udhcpc.script" "$ROOTFS/usr/share/udhcpc/default.script"

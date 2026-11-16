@@ -231,7 +231,7 @@ static void net_draw(Win *w, int x, int y, int cw, int ch) {
         If *f = &n->i[i]; int cardh = S(96);
         card(x + pad, cy, cw - pad * 2, cardh);
         int up = f->ip[0] != 0;
-        Img *ic = img_get(!strcmp(f->name, "lo") ? "home" : up ? "signal" : "plug", S(40)); if (ic) img_draw(ic, x + pad + S(18), cy + S(18), 255);
+        Img *ic = img_get(!strcmp(f->name, "lo") ? "home" : up ? "network" : "plug", S(40)); if (ic) img_draw(ic, x + pad + S(18), cy + S(18), 255);
         label(x + pad + S(74), cy + S(14), f->name, TH.text, S(17), 1);
         gfx_rrect(x + pad + S(74) + text_w(F_BOLD, f->name, S(17)) + S(12), cy + S(16), S(78), S(22), S(11), up ? TH.good : TH.dim, 60);
         label(x + pad + S(74) + text_w(F_BOLD, f->name, S(17)) + S(24), cy + S(18), up ? "connecté" : "sans IP", up ? TH.good : TH.dim, S(12), 1);
@@ -242,7 +242,11 @@ static void net_draw(Win *w, int x, int y, int cw, int ch) {
     }
     char g[120]; snprintf(g, sizeof g, "Passerelle : %s    DNS : %s", n->gw[0] ? n->gw : "—", n->dns[0] ? n->dns : "—");
     label(x + pad, cy + S(2), g, TH.dim, px, 0);
-    cy += S(32);
+    { char wl[160] = ""; DIR *wd = opendir("/sys/class/net"); struct dirent *we;
+      while (wd && (we = readdir(wd))) { char pth[300]; snprintf(pth, sizeof pth, "/sys/class/net/%s/wireless", we->d_name); if (we->d_name[0] != '.' && access(pth, F_OK) == 0) { snprintf(wl, sizeof wl, "Wi-Fi : carte sans fil %s détectée", we->d_name); break; } }
+      if (wd) closedir(wd);
+      label(x + pad, cy + S(24), wl[0] ? wl : "Wi-Fi : aucune carte sans fil (réseau filaire virtuel) — iwconfig, nmcli… répondent sans erreur 127", TH.dim, px - 1, 0); }
+    cy += S(54);
     int bw = S(180);
     ui_button(w, x + pad, cy, bw + S(40), S(38), "Connexion DHCP", "plug", N_DHCP, 1);
     ui_button(w, x + pad + bw + S(52), cy, bw, S(38), "Tester la connexion", "signal", N_PING, 0);

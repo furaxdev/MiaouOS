@@ -799,7 +799,7 @@ static void draw_panel(void) {
     text_draw(F_BOLD, x + S(10), ty + (ih - font_line_h(F_BOLD, S(12))) / 2, lay, TH.text, S(12)); szone(x, ty, lwid, ih, Z_LAYOUT);
     int nw = S(34) + text_w(F_UI, net_text, S(12)) + S(10);
     x -= nw; if (hover(x, ty, nw, ih)) gfx_rrect(x, ty, nw, ih, S(6), TH.btn, 255);
-    Img *ni = img_get(net_up ? "signal" : "plug", S(18)); if (ni) img_draw_tint(ni, x + S(8), ty + (ih - S(18)) / 2, 255, net_up ? TH.text : TH.dim);
+    Img *ni = img_get(net_up ? "network" : "plug", S(18)); if (ni) img_draw_tint(ni, x + S(8), ty + (ih - S(18)) / 2, 255, net_up ? TH.text : TH.dim);
     text_draw(F_UI, x + S(32), ty + (ih - font_line_h(F_UI, S(12))) / 2, net_text, net_up ? TH.text : TH.dim, S(12)); szone(x, ty, nw, ih, Z_NET);
     /* battery (only when the machine has one) and workspace pager */
     if (batt_pct >= 0) {

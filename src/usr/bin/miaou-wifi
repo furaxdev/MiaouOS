@@ -1,0 +1,38 @@
+#!/bin/sh
+# Wi-Fi front-end of MiaouOS. Installed under the usual names (iwconfig, iwlist, iw, nmcli, wpa_cli, wpa_supplicant,
+# rfkill, wifi) so that they answer clearly instead of failing with "command not found" (exit code 127).
+# This system image ships no wireless drivers or firmware: networking is wired (virtio/e1000 in QEMU).
+cmd=$(basename "$0")
+wifi_ifaces() { for d in /sys/class/net/*; do [ -d "$d/wireless" ] && basename "$d"; done; }
+wired_ifaces() { for d in /sys/class/net/*; do n=$(basename "$d"); [ "$n" != lo ] && [ ! -d "$d/wireless" ] && echo "$n"; done; }
+nowifi() {
+  echo "Aucune carte Wi-Fi détectée : MiaouOS utilise ici le réseau filaire (virtuel)."
+  for n in $(wired_ifaces); do
+    ip=$(ip -4 -o addr show "$n" 2>/dev/null | awk '{print $4}' | head -n 1)
+    echo "  $n : ${ip:-pas d'adresse} (câble)"
+  done
+  echo "Les pilotes et micrologiciels Wi-Fi ne sont pas inclus dans cette image."
+}
+case "$cmd" in
+  iwconfig)
+    for d in /sys/class/net/*; do n=$(basename "$d"); if [ -d "$d/wireless" ]; then echo "$n  IEEE 802.11  (carte sans fil)"; else printf '%-9s no wireless extensions.\n\n' "$n"; fi; done
+    exit 0 ;;
+  iwlist)
+    echo "iwlist : aucune interface sans fil ne gère le balayage." >&2; nowifi >&2; exit 1 ;;
+  iw|wifi|wifi-menu)
+    case "$1" in dev|list|"") [ -z "$(wifi_ifaces)" ] && { echo "Aucune interface Wi-Fi."; nowifi; exit 0; } ;; esac
+    nowifi; exit 1 ;;
+  nmcli)
+    case "$1 $2" in
+      "radio wifi") echo "absent"; exit 0 ;;
+      "device wifi"|"dev wifi"|"d w") nowifi; exit 0 ;;
+      "device status"|"dev status"|"device "|"dev "|"d "|" ") printf '%-12s %-10s %-12s\n' DEVICE TYPE STATE
+        for d in /sys/class/net/*; do n=$(basename "$d"); t=ethernet; [ -d "$d/wireless" ] && t=wifi; [ "$n" = lo ] && t=loopback; s=$(cat "$d/operstate" 2>/dev/null); printf '%-12s %-10s %-12s\n' "$n" "$t" "${s:-unknown}"; done; exit 0 ;;
+      *) nowifi; exit 0 ;;
+    esac ;;
+  rfkill)
+    echo "rfkill : aucun émetteur radio (pas de Wi-Fi ni de Bluetooth dans cette image)."; exit 0 ;;
+  wpa_cli|wpa_supplicant)
+    echo "$cmd : non disponible (pas de matériel Wi-Fi). $(nowifi | head -n 1)" >&2; exit 1 ;;
+  *) nowifi; exit 0 ;;
+esac
