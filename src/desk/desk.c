@@ -709,7 +709,7 @@ static int task_x0(void) { return S(48) + S(4); }
 enum { Z_SHOWDESK = 7 };
 static void draw_panel(void) {
     int ph = panel_h(), py = SH - ph;
-    gfx_fill(0, py, SW, ph, TH.panel, 250);
+    gfx_fill(0, py, SW, ph, TH.panel, 225);
     gfx_hline(0, py, SW, TH.line, 255);
     /* launcher: the flat logo, nothing else */
     int lw = S(48);
@@ -910,7 +910,7 @@ static void draw_desktop_icons(void) {
         if (dsel[k]) { gfx_rrect(x, y, w, h, S(8), TH.accent, 70); gfx_rrect_line(x, y, w, h, S(8), TH.accent, 255); }
         else if (hot) gfx_rrect(x, y, w, h, S(8), RGB(0, 0, 0), 80);
         int tile = S(48), tx0 = x + (w - tile) / 2, ty0 = y + S(8);
-        gfx_rrect(tx0, ty0, tile, tile, S(12), TH.win, 235); gfx_rrect_line(tx0, ty0, tile, tile, S(12), TH.line, 255);
+        gfx_rrect(tx0, ty0, tile, tile, S(12), TH.btn_hot, 215); gfx_rrect_line(tx0, ty0, tile, tile, S(12), TH.line, 255);
         const char *icon = ditems[k].kind == 0 ? APPS[ditems[k].app]->icon : ditems[k].kind == 3 ? "trash" : ditems[k].kind == 2 ? "folder" :
             (has_ext(ditems[k].label, ".png") || has_ext(ditems[k].label, ".jpg") || has_ext(ditems[k].label, ".jpeg")) ? "image" : "file";
         Img *im = img_get(icon, S(24)); if (im) img_draw(im, tx0 + (tile - S(24)) / 2, ty0 + (tile - S(24)) / 2, 255);
