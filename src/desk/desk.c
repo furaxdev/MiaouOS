@@ -102,13 +102,33 @@ static const struct { const char *n; u32 c; } ICOLS[] = {
     { "folder", RGB(245, 159, 0) }, { "file", RGB(77, 171, 247) }, { "trash", RGB(134, 142, 150) }, { "home", RGB(51, 154, 240) },
     { "drive", RGB(134, 142, 150) }, { "package", RGB(32, 201, 151) }, { "search", RGB(34, 139, 230) },
 };
+int icon_ears = 1;                   /* 0 none, 1 rounded cat ears, 2 pointed cat ears (Settings > Apparence) */
 void icon_tile(const char *name, int x, int y, int sz) {
     u32 c = RGB(100, 116, 139);
     for (size_t i = 0; i < sizeof ICOLS / sizeof ICOLS[0]; i++) if (!strcmp(ICOLS[i].n, name)) c = ICOLS[i].c;
-    int r = sz * 30 / 100;
-    gfx_rrect(x, y + 1, sz, sz, r, RGB(0, 0, 0), 38);
+    int r = sz * 30 / 100; float e = (float)sz, fx = (float)x, fy = (float)y;
+    if (icon_ears && sz >= 24) {
+        u32 inner = gfx_mix(c, RGB(255, 255, 255), 80);
+        for (int side = 0; side < 2; side++) {
+            float m = side ? -1.0f : 1.0f, ox = side ? fx + e : fx;                 /* mirror for the right ear */
+            #define EX(v) (ox + m * (v) * e)
+            if (icon_ears == 1) {   /* rounded ear: a small triangle thickened by a disc (corners = circles, sides = fat lines) */
+                float rho = 0.07f * e, vx[3] = { EX(0.15f), EX(0.37f), EX(0.15f) }, vy[3] = { fy + 0.10f * e, fy + 0.10f * e, fy - 0.15f * e };
+                gfx_tri(vx[0], vy[0], vx[1], vy[1], vx[2], vy[2], c, 255);
+                for (int k = 0; k < 3; k++) {
+                    int k2 = (k + 1) % 3;
+                    gfx_circle((int)(vx[k] + 0.5f), (int)(vy[k] + 0.5f), (int)(rho + 0.5f), c, 255);
+                    gfx_line(vx[k], vy[k], vx[k2], vy[k2], 2.0f * rho, c, 255);
+                }
+                gfx_tri(EX(0.17f), fy + 0.12f * e, EX(0.33f), fy + 0.12f * e, EX(0.17f), fy - 0.07f * e, inner, 255);
+            } else {                /* pointed */
+                gfx_tri(EX(0.07f), fy + 0.14f * e, EX(0.46f), fy + 0.14f * e, EX(0.07f), fy - 0.27f * e, c, 255);
+                gfx_tri(EX(0.15f), fy + 0.12f * e, EX(0.33f), fy + 0.12f * e, EX(0.15f), fy - 0.12f * e, inner, 255);
+            }
+            #undef EX
+        }
+    }
     gfx_rrect(x, y, sz, sz, r, c, 255);
-    gfx_clip(x, y, sz, sz * 45 / 100); gfx_rrect(x, y, sz, sz, r, RGB(255, 255, 255), 46); gfx_unclip();
     int g = sz * 54 / 100; Img *im = img_get(name, g);
     if (im) img_draw_tint(im, x + (sz - g) / 2, y + (sz - g) / 2, 255, RGB(255, 255, 255));
 }
@@ -996,6 +1016,7 @@ void apply_config(void) {
     theme_dark = strcmp(cfg_get("theme", "light"), "light") != 0;
     accent_idx = atoi(cfg_get("accent", "0")) & 3;
     anim_enabled = strcmp(cfg_get("anim", "1"), "0") != 0;
+    { const char *ev = cfg_get("ears", "round"); icon_ears = !strcmp(ev, "none") ? 0 : !strcmp(ev, "pointed") ? 2 : 1; }
     lock_minutes = atoi(cfg_get("lock", "10")); dnd = !strcmp(cfg_get("dnd", "0"), "1");
     if (cmd_layout >= 0) layout = cmd_layout;
     if (cmd_theme >= 0) theme_dark = cmd_theme;

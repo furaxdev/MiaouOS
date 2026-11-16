@@ -58,6 +58,7 @@ void  gfx_line(float x0, float y0, float x1, float y1, float width, u32 c, int a
 void  gfx_tri(float x0, float y0, float x1, float y1, float x2, float y2, u32 c, int a);
 void  gfx_logo(int x, int y, int size, u32 color, u32 eye);   /* the MiaouOS cat-head logo */
 void  img_free(Img *im);
+extern int icon_ears;                                       /* 0 none, 1 rounded, 2 pointed cat ears on icons */
 void  icon_tile(const char *name, int x, int y, int size);   /* colourful rounded app icon */
 Img  *wallpaper(int night);                      /* scaled to screen (cover) */
 

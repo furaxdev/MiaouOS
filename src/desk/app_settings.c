@@ -19,7 +19,7 @@ typedef struct {
     Job *job; char log[900];
 } Set;
 enum { A_TAB = 1, A_THEME_D = 20, A_THEME_L, A_ACC = 30, A_AUTO = 40, A_ANIM, A_WALL_DEF, A_WALL_IMG, A_UI = 60, A_KFR = 70, A_KUS, A_TZ = 80, A_NTP = 95,
-       A_USER = 100, A_FIELD = 120, A_SETPW = 130, A_ADD = 131, A_DEL = 132, A_ADMIN = 133, A_LOCK = 140, A_LOCKNOW = 150, A_DND = 151, A_HOST = 160 };
+       A_USER = 100, A_FIELD = 120, A_SETPW = 130, A_ADD = 131, A_DEL = 132, A_ADMIN = 133, A_LOCK = 140, A_LOCKNOW = 150, A_DND = 151, A_HOST = 160, A_EARS = 170 };
 static const unsigned ACCENT_RGB[4] = { RGB(232, 163, 61), RGB(240, 120, 106), RGB(111, 160, 240), RGB(141, 184, 148) };
 static const struct { const char *name, *tz; } ZONES[] = { { "UTC", "UTC0" }, { "Paris", "CET-1CEST,M3.5.0,M10.5.0/3" }, { "Londres", "GMT0BST,M3.5.0/1,M10.5.0" }, { "New York", "EST5EDT,M3.2.0,M11.1.0" },
     { "Los Angeles", "PST8PDT,M3.2.0,M11.1.0" }, { "Tokyo", "JST-9" }, { "Sydney", "AEST-10AEDT,M10.1.0,M4.1.0/3" }, { "Dubaï", "<+04>-4" } };
@@ -45,6 +45,7 @@ static void set_action(Win *w, int id, int mx, int my, int btn) {
     Set *s = w->st; (void)mx; (void)my; (void)btn; s->msg[0] = 0;
     if (id >= A_TAB && id < A_TAB + TABS) { s->tab = id - A_TAB; s->field = 0; return; }
     if (id == A_THEME_D || id == A_THEME_L) { int want = id == A_THEME_D; if (want != theme_dark) { theme_dark = want; theme_apply(); cfg_set("theme", want ? "dark" : "light"); toast(want ? "Thème : Nuit féline" : "Thème : Jour pastel"); } }
+    else if (id >= A_EARS && id < A_EARS + 3) { icon_ears = id - A_EARS; cfg_set("ears", icon_ears == 0 ? "none" : icon_ears == 2 ? "pointed" : "round"); dirty(); }
     else if (id >= A_ACC && id < A_ACC + 4) { accent_idx = id - A_ACC; theme_apply(); char b[8]; snprintf(b, sizeof b, "%d", accent_idx); cfg_set("accent", b); }
     else if (id == A_AUTO) { cfg_set("autotheme", !strcmp(cfg_get("autotheme", "0"), "1") ? "0" : "1"); }
     else if (id == A_ANIM) { anim_enabled = !anim_enabled; cfg_set("anim", anim_enabled ? "1" : "0"); }
@@ -136,6 +137,8 @@ static void set_draw(Win *w, int x, int y, int cw, int ch) {
         toggle(w, cx, ty2, "Thème automatique : jour de 7 h à 19 h", !strcmp(cfg_get("autotheme", "0"), "1"), A_AUTO);
         toggle(w, cx, ty2 + S(36), "Animations", anim_enabled, A_ANIM);
         ui_button(w, cx, ty2 + S(80), S(210), S(36), "Fond d'écran par défaut", NULL, A_WALL_DEF, 0); ui_button(w, cx + S(220), ty2 + S(80), S(210), S(36), "Choisir une image…", "image", A_WALL_IMG, 0);
+        label(cx, ty2 + S(130), "Oreilles de chat sur les icônes", TH.dim, S(12), 1);
+        { const char *en[] = { "Aucune", "Arrondies", "Pointues" }; for (int i = 0; i < 3; i++) ui_button(w, cx + i * S(140), ty2 + S(152), S(130), S(34), en[i], NULL, A_EARS + i, icon_ears == i); }
     } else if (s->tab == 1) {
         char info[140]; snprintf(info, sizeof info, "Écran actuel : %d × %d  ·  échelle de l'interface : %d %%", SW, SH, UIP); label(cx, cy, info, TH.text, px, 0);
         label(cx, cy + S(36), "Résolution", TH.dim, S(12), 1);
