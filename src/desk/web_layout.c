@@ -116,7 +116,7 @@ static int ctl_size(Node *e, int *w, int *h) {
 static void ibox(LB *lb, Node *e, int fixed_w) {
     const Style *s = &e->st;
     int cw, ch;
-    if (!strcmp(e->tag, "input") || !strcmp(e->tag, "button") || !strcmp(e->tag, "textarea") || !strcmp(e->tag, "select") || !strcmp(e->tag, "img")) {
+    if (!strcmp(e->tag, "input") || !strcmp(e->tag, "textarea") || !strcmp(e->tag, "select") || !strcmp(e->tag, "img")) {
         if (!ctl_size(e, &cw, &ch)) return;
         LI *i = li_add(lb); i->kind = 4; i->w = cw + S(s->ml) + S(s->mr); i->h = ch; i->node = e; i->gap = lb->pend_space; lb->pend_space = 0; return;
     }
@@ -178,7 +178,7 @@ static int item_natural(Node *e, int avail) {
     const Style *s = &e->st; int cw, ch;
     int bl = (s->bsides & 8) ? S(s->bw) : 0, br = (s->bsides & 2) ? S(s->bw) : 0, ex = S(s->pl) + S(s->pr) + bl + br, mg = S(s->ml) + S(s->mr);
     int nat;
-    if (!strcmp(e->tag, "input") || !strcmp(e->tag, "button") || !strcmp(e->tag, "textarea") || !strcmp(e->tag, "select") || !strcmp(e->tag, "img")) { if (!ctl_size(e, &cw, &ch)) return 0; nat = cw + mg; }
+    if (!strcmp(e->tag, "input") || !strcmp(e->tag, "textarea") || !strcmp(e->tag, "select") || !strcmp(e->tag, "img")) { if (!ctl_size(e, &cw, &ch)) return 0; nat = cw + mg; }
     else if (s->fbasis > 0) nat = S(s->fbasis) + (s->bbox ? 0 : ex) + mg;
     else if (s->width) nat = S(s->width) + (s->bbox ? 0 : ex) + mg;
     else if (s->wpct) nat = avail * s->wpct / 100 + S(s->wadd);

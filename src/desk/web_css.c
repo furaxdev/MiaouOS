@@ -527,6 +527,7 @@ static void ua_style(const Node *n, Style *s, const Style *par) {
     if (T("center") || T("th")) s->align = 1;
     if (T("table")) { s->mt = s->mb = 4; }
     if (T("td") || T("th")) { s->pl = s->pr = 6; s->pt = s->pb = 3; }
+    if (T("button")) { s->bg = RGB(235, 235, 238); s->has_bg = 1; s->bsides = 15; s->bw = 1; s->bc = RGB(170, 170, 178); s->radius = 5; s->pl = s->pr = 14; s->pt = s->pb = 6; s->align = 1; s->bold = 0; s->color = RGB(30, 30, 34); s->fs = 14; }
     if (T("fieldset")) { s->bsides = 15; s->bw = 1; s->bc = RGB(190, 190, 190); s->pl = s->pr = 10; s->pt = s->pb = 6; }
     #undef T
 }
