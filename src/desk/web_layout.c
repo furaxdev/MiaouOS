@@ -24,7 +24,7 @@ static LI *li_add(LB *lb) { if (lb->n >= lb->cap) { lb->cap = lb->cap ? lb->cap 
 static Font *font_of(const Style *s) { return s->mono ? F_MONO : s->bold ? F_BOLD : F_UI; }
 static int line_h(const Style *s) { return s->lh ? S(s->lh) : S(s->fs) * 135 / 100; }
 
-static int force_tw, force_h;           /* flex/grid items: exact total width / minimum height for the next layout_block */
+static int force_tw, force_h, lay_measure;   /* lay_measure: trial layout for max-content width (no text alignment) */           /* flex/grid items: exact total width / minimum height for the next layout_block */
 static void layout_block(Node *n, int x, int w);
 static void layout_children(Node *n, int x, int w);
 static void collect(LB *lb, Node *e);
@@ -56,7 +56,7 @@ static void emit_line(LB *lb, int a, int b, int width_used) {
     if (a >= b) return;
     int lh = 0; for (int i = a; i < b; i++) if (lb->it[i].h > lh) lh = lb->it[i].h;
     flush_pending();
-    int off = lb->align == 1 ? (lb->w - width_used) / 2 : lb->align == 2 ? lb->w - width_used : 0; if (off < 0) off = 0;
+    int off = lay_measure ? 0 : lb->align == 1 ? (lb->w - width_used) / 2 : lb->align == 2 ? lb->w - width_used : 0; if (off < 0) off = 0;
     int x = lb->x + off, sp = text_w(F_UI, " ", S(16));
     for (int i = a; i < b; i++) {
         LI *it = &lb->it[i];
@@ -127,7 +127,7 @@ static void ibox(LB *lb, Node *e, int fixed_w) {
     int W;
     if (fixed_w > 0) W = fixed_w; else if (s->width) W = S(s->width) + (s->bbox ? S(s->ml) + S(s->mr) : extra); else if (s->wpct) W = avail * s->wpct / 100 + S(s->wadd); else W = avail;
     if (W > avail && fixed_w <= 0) W = avail;
-    ly = 0; lpend = 0; force_tw = 1; layout_block(e, 0, W);
+    ly = 0; lpend = 0; force_tw = 1; lay_measure += (fixed_w <= 0 && !s->width && !s->wpct); layout_block(e, 0, W); if (fixed_w <= 0 && !s->width && !s->wpct) lay_measure--;
     if (fixed_w <= 0 && !s->width && !s->wpct) {   /* shrink-to-fit: measure the widest line and lay out again */
         int maxr = 0; for (int i = d0; i < LP->ndi; i++) { DI *d = &LP->di[i]; if (d->kind == DI_TEXT || d->kind == DI_FIELD) { int r = d->x + d->w; if (r > maxr) maxr = r; } }
         int nw = maxr + S(s->pr) + S(s->mr) + br + S(2);
@@ -183,7 +183,7 @@ static int item_natural(Node *e, int avail) {
     else if (s->width) nat = S(s->width) + (s->bbox ? 0 : ex) + mg;
     else if (s->wpct) nat = avail * s->wpct / 100 + S(s->wadd);
     else {
-        int sy = ly, sp = lpend, d0 = LP->ndi; ly = 0; lpend = 0; force_tw = 1; layout_block(e, 0, avail);
+        int sy = ly, sp = lpend, d0 = LP->ndi; ly = 0; lpend = 0; force_tw = 1; lay_measure++; layout_block(e, 0, avail); lay_measure--;
         int maxr = 0; for (int i = d0; i < LP->ndi; i++) { DI *d = &LP->di[i]; if (d->kind == DI_TEXT || d->kind == DI_FIELD) { int r = d->x + d->w; if (r > maxr) maxr = r; } }
         di_truncate(d0); ly = sy; lpend = sp; nat = maxr + S(s->pr) + br + mg + S(2);
         if (nat < ex + mg) nat = ex + mg;
