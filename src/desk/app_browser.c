@@ -16,7 +16,7 @@ typedef struct {
     Page *pg; char url[600], urlbuf[600]; int editing, scroll, total;
     char *hist[32]; int hpos, hn;
     Job *job; char pending[600], pending_post[1200]; char status[200]; int loading;
-    long fetch_budget; Win *win;
+    long fetch_budget; Win *win; int urlsel;     /* address bar content is selected: the next key replaces it */
 } Br;
 enum { B_BACK = 1, B_FWD, B_RELOAD, B_HOME, B_URL };
 
@@ -236,7 +236,7 @@ static void br_action(Win *w, int id, int mx, int my, int btn) {
     switch (id) {
     case B_BACK: history_go(b, -1); break; case B_FWD: history_go(b, 1); break;
     case B_RELOAD: navigate(b, b->url, 0); break; case B_HOME: navigate(b, "about:miaou", 1); break;
-    case B_URL: b->editing = 1; snprintf(b->urlbuf, sizeof b->urlbuf, "%s", strcmp(b->url, "about:miaou") ? b->url : ""); break;
+    case B_URL: b->editing = 1; b->urlsel = 1; snprintf(b->urlbuf, sizeof b->urlbuf, "%s", strcmp(b->url, "about:miaou") ? b->url : ""); break;
     }
 }
 static void br_mouse(Win *w, int type, int x, int y, int arg) {
@@ -263,8 +263,10 @@ static void edit_value(Br *b, Node *f, int key) {
 }
 static void br_key(Win *w, int key, int mods) {
     Br *b = w->st; Page *pg = b->pg;
-    if ((mods & MOD_CTRL) && (key == 'l' || key == 'L')) { b->editing = 1; snprintf(b->urlbuf, sizeof b->urlbuf, "%s", strcmp(b->url, "about:miaou") ? b->url : ""); return; }
+    if ((mods & MOD_CTRL) && (key == 'l' || key == 'L')) { b->editing = 1; b->urlsel = 1; snprintf(b->urlbuf, sizeof b->urlbuf, "%s", strcmp(b->url, "about:miaou") ? b->url : ""); return; }
     if (b->editing) {
+        if (b->urlsel && (key == K_BS || (key >= 32 && key < 0x200000 && !(mods & MOD_CTRL)))) { b->urlbuf[0] = 0; b->urlsel = 0; if (key == K_BS) return; }
+        else if (key == K_LEFT || key == K_RIGHT) b->urlsel = 0;
         int n = (int)strlen(b->urlbuf);
         if (key == K_ESC) b->editing = 0; else if (key == K_ENTER) go_input(b);
         else if (key == K_BS) { if (n) { while (n > 0 && (b->urlbuf[n - 1] & 0xc0) == 0x80) n--; if (n) n--; b->urlbuf[n] = 0; } }
