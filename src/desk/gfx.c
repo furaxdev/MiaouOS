@@ -249,6 +249,7 @@ void gfx_present_rect(int x, int y, int w, int h) {
         }
     }
 }
+u32 gfx_scene_px(int x, int y) { if (!scene || x < 0 || y < 0 || x >= SW || y >= SH) return 0; return scene[(size_t)y * SW + x]; }
 void gfx_fb_pixel(int x, int y, u32 rgb) {
     if (!fbmem || x < 0 || y < 0 || x >= SW || y >= SH) return;
     int bpp = (int)var.bits_per_pixel / 8;

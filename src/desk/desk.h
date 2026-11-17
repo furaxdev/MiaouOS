@@ -30,6 +30,7 @@ void gfx_hline(int x, int y, int w, u32 c, int a);
 void gfx_vline(int x, int y, int h, u32 c, int a);
 void gfx_blit(const u32 *src, int sw, int sh, int dx, int dy);   /* opaque copy of an RGB buffer */
 void gfx_fb_pixel(int x, int y, u32 rgb);
+u32  gfx_scene_px(int x, int y);
 void desk_mode_changed(void);
 void gfx_present(void);                    /* scene -> framebuffer (whole) */
 void gfx_present_rect(int x, int y, int w, int h);

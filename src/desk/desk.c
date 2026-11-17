@@ -1058,67 +1058,98 @@ void apply_config(void) {
 }
 
 /* software cursor drawn straight into the framebuffer (the scene stays cursor-free).
- * Shapes: arrow and hand are bitmaps, the others (I-beam, resize arrows, move, busy ring) are generated from simple geometry. */
-static const char *CUR[] = {
-    "#           ", "##          ", "#+#         ", "#++#        ", "#+++#       ", "#++++#      ", "#+++++#     ", "#++++++#    ",
-    "#+++++++#   ", "#++++++++#  ", "#+++++#####", "#++#++#     ", "#+# #++#    ", "##  #++#    ", "#    #++#   ", "     #++#   ", "      ##    " };
-static const char *HAND[] = {
-    "    ##        ", "   #++#       ", "   #++#       ", "   #++#       ", "   #++###     ", "   #++#++##   ", " ###++#++#+## ", "#++#++++++++#+#",
-    "#+++++++++++++#", " #++++++++++++#", " #++++++++++++#", "  #+++++++++++#", "  #+++++++++# ", "   #++++++++#  ", "   #+++++++#  ", "    #+++++#   ", "    #######   " };
-#define CWD 24
-typedef struct { unsigned char m[CWD][CWD]; int hx, hy; } CurShape;     /* m: 0 clear, 1 dark, 2 light */
-static CurShape cshape;
-static int cur_dx, cur_dy, cur_kind, cur_busy_t, cur_extent = 1;
-void cursor_hint(int x, int y, int w, int h, int kind) { if (nhint < 96) { hints[nhint].x = x; hints[nhint].y = y; hints[nhint].w = w; hints[nhint].h = h; hints[nhint].k = kind; nhint++; } }
+ * KDE-style smooth cursors: every shape is a signed-distance field rasterised with anti-aliasing (dark body, white outline, soft shadow),
+ * cached per kind and UI scale, and alpha-blended over the scene pixels - no pixel-art bitmaps. */
+static int cur_dx, cur_dy, cur_kind, cur_extent = 1, cur_busy_t;
 static int cursor_kind_calc(void);
-static void cursor_scale(int *s) { *s = (UIP + 50) / 100; if (*s < 1) *s = 1; }
-static void cursor_erase(void) { int s; cursor_scale(&s); gfx_present_rect(cur_dx - 1 - 12 * s, cur_dy - 1 - 12 * s, CWD * s + 2, CWD * s + 2); }
-static float cur_inside_darr(float lx, float ly) {                  /* double-headed arrow along x, centred on 0,0 */
-    float ax = lx < 0 ? -lx : lx, ay = ly < 0 ? -ly : ly;
-    if (ay <= 1.1f && ax <= 6.5f) return 1;
-    if (ax >= 4.0f && ax <= 9.6f && ay <= (9.8f - ax) * 0.95f) return 1;
-    return 0;
+static void cursor_scale_f(float *u) { *u = (float)UIP / 100.0f; if (*u < 1.0f) *u = 1.0f; }
+static int cur_canvas(float u) { return (int)(28.0f * u + 0.999f); }
+static void cursor_erase(void) { float u; cursor_scale_f(&u); int n = (int)(32.0f * u) + 4; gfx_present_rect(cur_dx - (int)(16.0f * u) - 2, cur_dy - (int)(16.0f * u) - 2, n, n); }
+static float sd_seg(float px, float py, float ax, float ay, float bx, float by) {
+    float dx = bx - ax, dy = by - ay, t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy + 1e-9f); t = t < 0 ? 0 : t > 1 ? 1 : t;
+    float qx = px - ax - dx * t, qy = py - ay - dy * t; return sqrtf(qx * qx + qy * qy);
 }
-static void cursor_build(int kind) {
-    memset(&cshape, 0, sizeof cshape);
-    if (kind == CK_ARROW || kind == CK_HAND) {
-        const char **bm = kind == CK_ARROW ? CUR : HAND; int rows = 17;
-        for (int r = 0; r < rows; r++) for (int c = 0; bm[r][c] && c < CWD; c++) cshape.m[r][c] = bm[r][c] == '#' ? 1 : bm[r][c] == '+' ? 2 : 0;
-        cshape.hx = kind == CK_HAND ? 4 : 0; cshape.hy = 0; return;
+static float sd_cap(float px, float py, float ax, float ay, float bx, float by, float r) { return sd_seg(px, py, ax, ay, bx, by) - r; }
+static float sd_poly(float px, float py, const float *v, int n) {
+    float d = 1e9f; int in = 0;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+        float ax = v[j * 2], ay = v[j * 2 + 1], bx = v[i * 2], by = v[i * 2 + 1], e = sd_seg(px, py, ax, ay, bx, by); if (e < d) d = e;
+        if (((ay > py) != (by > py)) && (px < (bx - ax) * (py - ay) / (by - ay) + ax)) in = !in;
     }
-    unsigned char g[CWD][CWD]; memset(g, 0, sizeof g); float c0 = 11.5f;
-    for (int y = 0; y < CWD; y++) for (int x = 0; x < CWD; x++) {
-        float dx = (float)x + 0.5f - c0, dy = (float)y + 0.5f - c0, fx = dx, fy = dy; int in = 0;
-        switch (kind) {
-        case CK_RSH: in = (int)cur_inside_darr(fx, fy); break;
-        case CK_RSV: in = (int)cur_inside_darr(fy, fx); break;
-        case CK_RSD1: in = (int)cur_inside_darr((dx + dy) * 0.7071f, (dy - dx) * 0.7071f); break;
-        case CK_RSD2: in = (int)cur_inside_darr((dx - dy) * 0.7071f, (dy + dx) * 0.7071f); break;
-        case CK_MOVE: in = (int)cur_inside_darr(fx, fy) || (int)cur_inside_darr(fy, fx); break;
-        case CK_IBEAM: { float ax = fx < 0 ? -fx : fx; in = (ax <= 1.1f && fy >= -8.5f && fy <= 8.5f) || (ax <= 3.6f && ((fy >= -9.5f && fy <= -7.7f) || (fy >= 7.7f && fy <= 9.5f))); } break;
-        case CK_BUSY: { float r = sqrtf(dx * dx + dy * dy); float ang = atan2f(dy, dx) * 57.2958f + 180.0f; float ph = (float)((cur_busy_t / 80) % 12) * 30.0f; float d = ang - ph; while (d < 0) d += 360; in = r >= 5.0f && r <= 8.2f && d < 270.0f; } break;
-        }
-        g[y][x] = (unsigned char)in;
+    return in ? -d : d;
+}
+static float sd_rbox(float px, float py, float cx, float cy, float hw, float hh, float r) {
+    float qx = fabsf(px - cx) - hw + r, qy = fabsf(py - cy) - hh + r, mx = qx > 0 ? qx : 0, my = qy > 0 ? qy : 0;
+    float o = sqrtf(mx * mx + my * my), i = (qx > qy ? qx : qy); i = i > 0 ? 0 : i; return o + i - r;
+}
+static float sd_darrow(float x, float y) {                      /* double-headed arrow along x, centred on (14,14) */
+    float d = sd_cap(x, y, 8.2f, 14.0f, 19.8f, 14.0f, 1.0f);
+    static const float L[] = { 3.0f, 14.0f, 8.8f, 9.3f, 8.8f, 18.7f }, R[] = { 25.0f, 14.0f, 19.2f, 9.3f, 19.2f, 18.7f };
+    float a = sd_poly(x, y, L, 3) - 0.3f, b = sd_poly(x, y, R, 3) - 0.3f; if (a < d) d = a; if (b < d) d = b; return d;
+}
+static float sd_arr(float x, float y) {                          /* arrow pointing +x from the centre: shaft + triangular head */
+    static const float H[] = { 12.4f, 0.0f, 7.6f, -3.4f, 7.6f, 3.4f };
+    float d = sd_cap(x, y, 0.0f, 0.0f, 8.0f, 0.0f, 0.95f), h = sd_poly(x, y, H, 3) - 0.3f; return h < d ? h : d;
+}
+static float cursor_sdf(int kind, float x, float y, int phase, float *hx, float *hy) {
+    float d = 1e9f; *hx = 14; *hy = 14;
+    switch (kind) {
+    case CK_ARROW: {
+        static const float A[] = { 3.0f, 2.0f, 3.0f, 19.2f, 7.2f, 15.3f, 10.4f, 22.2f, 13.0f, 21.0f, 10.0f, 14.4f, 15.6f, 14.4f };
+        d = sd_poly(x, y, A, 7) - 0.35f; *hx = 3.0f; *hy = 2.0f; break; }
+    case CK_HAND: {
+        d = sd_cap(x, y, 10.0f, 5.2f, 10.0f, 13.0f, 2.0f);
+        float p = sd_rbox(x, y, 13.4f, 17.6f, 6.4f, 5.0f, 3.2f); if (p < d) d = p;
+        float f1 = sd_cap(x, y, 13.4f, 11.6f, 13.4f, 14.0f, 1.55f), f2 = sd_cap(x, y, 16.5f, 12.4f, 16.5f, 14.4f, 1.5f), f3 = sd_cap(x, y, 19.2f, 13.4f, 19.2f, 15.0f, 1.4f), th = sd_cap(x, y, 7.6f, 17.4f, 5.6f, 14.2f, 1.7f);
+        if (f1 < d) d = f1; if (f2 < d) d = f2; if (f3 < d) d = f3; if (th < d) d = th; *hx = 10.0f; *hy = 3.2f; break; }
+    case CK_IBEAM: {
+        d = sd_cap(x, y, 14.0f, 5.0f, 14.0f, 23.0f, 0.95f);
+        float a = sd_cap(x, y, 10.6f, 5.0f, 17.4f, 5.0f, 0.95f), b = sd_cap(x, y, 10.6f, 23.0f, 17.4f, 23.0f, 0.95f); if (a < d) d = a; if (b < d) d = b; break; }
+    case CK_RSH: d = sd_darrow(x, y); break;
+    case CK_RSV: d = sd_darrow(y, x); break;
+    case CK_RSD1: { float dx = x - 14.0f, dy = y - 14.0f; d = sd_darrow(14.0f + (dx + dy) * 0.7071f, 14.0f + (dy - dx) * 0.7071f); break; }
+    case CK_RSD2: { float dx = x - 14.0f, dy = y - 14.0f; d = sd_darrow(14.0f + (dx - dy) * 0.7071f, 14.0f + (dy + dx) * 0.7071f); break; }
+    case CK_MOVE: { float dx = x - 14.0f, dy = y - 14.0f; float v[4] = { sd_arr(dx, dy), sd_arr(-dx, dy), sd_arr(dy, dx), sd_arr(-dy, dx) }; d = v[0]; for (int i = 1; i < 4; i++) if (v[i] < d) d = v[i]; break; }
+    case CK_BUSY: {
+        float dx = x - 14.0f, dy = y - 14.0f, r = sqrtf(dx * dx + dy * dy); float ang = atan2f(dy, dx) * 57.2958f + 180.0f; float ph = (float)(phase % 12) * 30.0f; float da = ang - ph; while (da < 0) da += 360.0f;
+        float ring = fabsf(r - 7.4f) - 1.4f; d = da < 270.0f ? ring : 1e3f; if (da < 270.0f && (da < 20.0f || da > 250.0f)) d = ring + (da < 20.0f ? (20.0f - da) * 0.06f : (da - 250.0f) * 0.06f); break; }
     }
-    for (int y = 0; y < CWD; y++) for (int x = 0; x < CWD; x++) {
-        if (g[y][x]) { cshape.m[y][x] = 1; continue; }
-        for (int j = -1; j <= 1; j++) for (int i = -1; i <= 1; i++) { int yy = y + j, xx = x + i; if (yy >= 0 && yy < CWD && xx >= 0 && xx < CWD && g[yy][xx]) cshape.m[y][x] = 2; }
+    return d;
+}
+typedef struct { int kind, scale100, phase, w, hx, hy; u32 *px; } CurImg;
+static CurImg curimgs[CK_N + 2];
+static CurImg *cursor_image(int kind) {
+    float u; cursor_scale_f(&u); int sc = UIP, phase = kind == CK_BUSY ? (int)((now_ms() / 80) % 12) : 0;
+    CurImg *c = &curimgs[kind];
+    if (c->px && c->scale100 == sc && c->phase == phase) return c;
+    free(c->px); int w = cur_canvas(u); c->w = w; c->kind = kind; c->scale100 = sc; c->phase = phase; c->px = malloc((size_t)w * (size_t)w * 4);
+    float hx, hy; cursor_sdf(kind, 0, 0, phase, &hx, &hy); c->hx = (int)(hx * u + 0.5f); c->hy = (int)(hy * u + 0.5f);
+    for (int j = 0; j < w; j++) for (int i = 0; i < w; i++) {
+        float x = ((float)i + 0.5f) / u, y = ((float)j + 0.5f) / u, hx2, hy2;
+        float d = cursor_sdf(kind, x, y, phase, &hx2, &hy2), dpx = d * u;
+        float ds = cursor_sdf(kind, x - 0.7f, y - 1.2f, phase, &hx2, &hy2) * u; float sh = 0.30f * (1.0f - ds / (2.8f * u)); sh = sh < 0 ? 0 : sh > 1 ? 1 : sh; sh *= sh;
+        float ow = 0.5f - (dpx - 1.25f * u); ow = ow < 0 ? 0 : ow > 1 ? 1 : ow;
+        float fl = 0.5f - dpx; fl = fl < 0 ? 0 : fl > 1 ? 1 : fl;
+        /* shadow (black) -> outline (white) -> body (dark slate), straight alpha */
+        float cr = 0, cg = 0, cb = 0, a = sh;
+        float a2 = ow + a * (1 - ow); if (a2 > 0) { cr = (255 * ow + cr * a * (1 - ow)) / a2; cg = (255 * ow + cg * a * (1 - ow)) / a2; cb = (255 * ow + cb * a * (1 - ow)) / a2; } a = a2;
+        float a3 = fl + a * (1 - fl); if (a3 > 0) { cr = (43 * fl + cr * a * (1 - fl)) / a3; cg = (47 * fl + cg * a * (1 - fl)) / a3; cb = (51 * fl + cb * a * (1 - fl)) / a3; } a = a3;
+        int A = (int)(a * 255.0f + 0.5f); c->px[(size_t)j * (size_t)w + (size_t)i] = ((u32)A << 24) | ((u32)(int)(cr + 0.5f) << 16) | ((u32)(int)(cg + 0.5f) << 8) | (u32)(int)(cb + 0.5f);
     }
-    cshape.hx = cshape.hy = 12;
+    return c;
 }
 static void cursor_draw(void) {
-    int s; cursor_scale(&s);
-    cur_kind = cursor_kind_calc(); if (cur_kind == CK_BUSY) cur_busy_t = (int)(now_ms() & 0xfffffff);
-    cursor_build(cur_kind);
-    u32 dark = RGB(20, 20, 21), light = RGB(255, 255, 255);
-    for (int r = 0; r < CWD; r++)
-        for (int c = 0; c < CWD; c++) {
-            int v = cshape.m[r][c]; if (!v) continue;
-            u32 col = v == 1 ? dark : light;
-            int px = mouse_x + (c - cshape.hx) * s, py = mouse_y + (r - cshape.hy) * s;
-            for (int yy = 0; yy < s; yy++) for (int xx = 0; xx < s; xx++) gfx_fb_pixel(px + xx, py + yy, col);
-        }
-    cur_dx = mouse_x; cur_dy = mouse_y; (void)cur_extent;
+    cur_kind = cursor_kind_calc();
+    CurImg *c = cursor_image(cur_kind);
+    for (int j = 0; j < c->w; j++) for (int i = 0; i < c->w; i++) {
+        u32 p = c->px[(size_t)j * (size_t)c->w + (size_t)i]; int a = (int)(p >> 24); if (!a) continue;
+        int x = mouse_x - c->hx + i, y = mouse_y - c->hy + j;
+        if (a >= 250) { gfx_fb_pixel(x, y, p & 0xffffff); continue; }
+        u32 bg = gfx_scene_px(x, y); int inv = 255 - a;
+        int r = (int)((p >> 16) & 255) * a / 255 + (int)((bg >> 16) & 255) * inv / 255, g = (int)((p >> 8) & 255) * a / 255 + (int)((bg >> 8) & 255) * inv / 255, bl = (int)(p & 255) * a / 255 + (int)(bg & 255) * inv / 255;
+        gfx_fb_pixel(x, y, RGB(r, g, bl));
+    }
+    cur_dx = mouse_x; cur_dy = mouse_y; (void)cur_extent; (void)cur_busy_t;
 }
 static void present_all(void) { gfx_present(); cursor_draw(); }
 
