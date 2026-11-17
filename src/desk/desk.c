@@ -1019,6 +1019,7 @@ static void draw_toasts(void) {
 }
 
 static struct { int x, y, w, h, k; } hints[96]; static int nhint;
+void cursor_hint(int x, int y, int w, int h, int kind) { if (nhint < 96) { hints[nhint].x = x; hints[nhint].y = y; hints[nhint].w = w; hints[nhint].h = h; hints[nhint].k = kind; nhint++; } }
 static void draw_scene(void) {
     nhint = 0;
     nsz = 0; want_blink = 0;
