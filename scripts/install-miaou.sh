@@ -8,10 +8,13 @@ WORK="${2:-$ROOT/build/work}"
 mkdir -p "$WORK" "$ROOTFS"/{bin,sbin,etc,proc,sys,dev,tmp,run,root,usr/bin,usr/sbin,usr/share/miaou/{fonts,icons,wallpapers,licenses,packages},usr/share/udhcpc,usr/lib/miaou,var/lib/miaou/repository,var/cache/miaou,opt/miaou/packages}
 
 # --- MiaouDesk (C, static) ---
-# MuJS (ISC, vendored in src/desk/mujs) is the JavaScript engine of the browser
-gcc -std=gnu11 -O2 -w -c "$ROOT/src/desk/mujs/one.c" -o "$WORK/mujs.o"
-gcc -std=gnu11 -O2 -g -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -static \
-  "$ROOT"/src/desk/*.c "$WORK/mujs.o" -o "$ROOTFS/usr/bin/miaoudesk-gui" -lm
+# QuickJS (MIT, vendored in src/desk/quickjs) is the JavaScript engine of the browser (ES2023)
+mkdir -p "$WORK/qjs"
+for f in quickjs libbf cutils libregexp libunicode; do
+  [ "$WORK/qjs/$f.o" -nt "$ROOT/src/desk/quickjs/$f.c" ] || gcc -std=gnu11 -O2 -w -DNDEBUG -D_GNU_SOURCE -DCONFIG_VERSION=\"2024-01-13\" -c "$ROOT/src/desk/quickjs/$f.c" -o "$WORK/qjs/$f.o"
+done
+gcc -std=gnu11 -O2 -g -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -Wno-cast-function-type -static \
+  "$ROOT"/src/desk/*.c "$WORK"/qjs/*.o -o "$ROOTFS/usr/bin/miaoudesk-gui" -lm -lpthread
 # --- assets (fonts, icons, wallpapers) ---
 install -m 0644 "$ROOT"/assets/fonts/*.ttf "$ROOTFS/usr/share/miaou/fonts/"
 install -m 0644 "$ROOT"/assets/fonts/OFL-*.txt "$ROOTFS/usr/share/miaou/licenses/"
@@ -19,6 +22,7 @@ mkdir -p "$ROOTFS/usr/share/miaou/icons/mono"
 install -m 0644 "$ROOT"/assets/icons/mono/*.png "$ROOTFS/usr/share/miaou/icons/mono/"
 install -m 0644 "$ROOT"/assets/icons/LICENSE-lucide.txt "$ROOTFS/usr/share/miaou/licenses/"
 install -m 0644 "$ROOT"/assets/wallpapers/*.jpg "$ROOTFS/usr/share/miaou/wallpapers/"
+install -D -m 0644 "$ROOT/assets/web/prelude.js" "$ROOTFS/usr/share/miaou/web/prelude.js"
 # --- shell scripts and libraries ---
 install -D -m 0755 "$ROOT/src/init" "$ROOTFS/init"
 install -D -m 0755 "$ROOT/src/miaoudesk.sh" "$ROOTFS/usr/bin/miaoudesk"

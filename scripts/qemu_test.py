@@ -248,6 +248,8 @@ def web_scenario():
     click(bx, by); time.sleep(0.6); click(bx, by); time.sleep(0.6); shot('62-web-js-clicked')
     click(S(200), by); time.sleep(0.4); typ('chat'); time.sleep(0.5); shot('63-web-typed')
     key('ret'); time.sleep(6.0); shot('64-web-form-result')
+    key('ctrl', 'l'); time.sleep(0.4); typ('http://10.0.2.2:8000/modern.html\n'); time.sleep(8.0); shot('65-web-modern')
+    bx2, by2 = S(1100), TH_H + S(52) + S(260); click(bx2, by2); time.sleep(1.5); shot('66-web-modern-clicked')
 
 if args.scenario == 'apps2':
     apps2_scenario()

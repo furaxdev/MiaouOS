@@ -28,7 +28,7 @@ typedef struct { int kind, x, y, w, h; u32 c, c2; char *s; Font *f; int px, ul, 
 
 typedef struct { char *decl; int spec, order; void *sel; } Rule;
 
-typedef struct { int id; long due, every; char *ref; } Timer;
+typedef struct { int id; long due, every; void *fn; } Timer;
 
 typedef struct Page {
     Node *doc;
@@ -45,6 +45,7 @@ typedef struct Page {
     char console[6][160]; int ncons;
     char err[160];
     int post_pending; char post_data[1200];
+    long js_deadline;                          /* watchdog: scripts are interrupted after this time (ms clock) */
     char *(*fetch)(const char *url, size_t *len, void *ctx); void *fctx;     /* synchronous resource loader (scripts, stylesheets, XHR) */
 } Page;
 
