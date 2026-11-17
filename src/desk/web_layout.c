@@ -24,6 +24,7 @@ static LI *li_add(LB *lb) { if (lb->n >= lb->cap) { lb->cap = lb->cap ? lb->cap 
 static Font *font_of(const Style *s) { return s->mono ? F_MONO : s->bold ? F_BOLD : F_UI; }
 static int line_h(const Style *s) { return s->lh ? S(s->lh) : S(s->fs) * 135 / 100; }
 
+static int force_tw, force_h;           /* flex/grid items: exact total width / minimum height for the next layout_block */
 static void layout_block(Node *n, int x, int w);
 static void layout_children(Node *n, int x, int w);
 static void collect(LB *lb, Node *e);
@@ -124,13 +125,13 @@ static void ibox(LB *lb, Node *e, int fixed_w) {
     int avail = lb->w; int bl = (s->bsides & 8) ? S(s->bw) : 0, br = (s->bsides & 2) ? S(s->bw) : 0;
     int extra = S(s->ml) + S(s->mr) + S(s->pl) + S(s->pr) + bl + br;
     int W;
-    if (fixed_w > 0) W = fixed_w; else if (s->width) W = S(s->width) + extra; else if (s->wpct) W = avail * s->wpct / 100; else W = avail;
+    if (fixed_w > 0) W = fixed_w; else if (s->width) W = S(s->width) + (s->bbox ? S(s->ml) + S(s->mr) : extra); else if (s->wpct) W = avail * s->wpct / 100 + S(s->wadd); else W = avail;
     if (W > avail && fixed_w <= 0) W = avail;
-    ly = 0; lpend = 0; layout_block(e, 0, W);
+    ly = 0; lpend = 0; force_tw = 1; layout_block(e, 0, W);
     if (fixed_w <= 0 && !s->width && !s->wpct) {   /* shrink-to-fit: measure the widest line and lay out again */
         int maxr = 0; for (int i = d0; i < LP->ndi; i++) { DI *d = &LP->di[i]; if (d->kind == DI_TEXT || d->kind == DI_FIELD) { int r = d->x + d->w; if (r > maxr) maxr = r; } }
         int nw = maxr + S(s->pr) + S(s->mr) + br + S(2);
-        if (nw > 0 && nw < W) { di_truncate(d0); ly = 0; lpend = 0; layout_block(e, 0, nw); W = nw; }
+        if (nw > 0 && nw < W) { di_truncate(d0); ly = 0; lpend = 0; force_tw = 1; layout_block(e, 0, nw); W = nw; }
     }
     int h = ly + lpend;
     ly = save_y; lpend = save_p;
@@ -150,7 +151,9 @@ static void collect(LB *lb, Node *e) {
     }
 }
 
+static void layout_flex(Node *n, int x, int w);
 static void layout_children(Node *n, int x, int w) {
+    if (n->st.sticky_dummy && n->st.display != D_ROW) { layout_flex(n, x, w); return; }
     LB lb; memset(&lb, 0, sizeof lb); lb.x = x; lb.w = w; lb.align = n->st.align; lb.nowrap = n->st.nowrap && !n->st.pre; lb.flow = n;
     int flex = n->st.sticky_dummy, row = n->st.display == D_ROW;
     if (flex && n->st.jcenter) lb.align = n->st.jcenter == 1 ? 1 : 2;
@@ -170,16 +173,109 @@ static void layout_children(Node *n, int x, int w) {
     flush_lines(&lb); free(lb.it);
 }
 
+/* ---- flexbox and grid ---- */
+static int item_natural(Node *e, int avail) {
+    const Style *s = &e->st; int cw, ch;
+    int bl = (s->bsides & 8) ? S(s->bw) : 0, br = (s->bsides & 2) ? S(s->bw) : 0, ex = S(s->pl) + S(s->pr) + bl + br, mg = S(s->ml) + S(s->mr);
+    int nat;
+    if (!strcmp(e->tag, "input") || !strcmp(e->tag, "button") || !strcmp(e->tag, "textarea") || !strcmp(e->tag, "select") || !strcmp(e->tag, "img")) { if (!ctl_size(e, &cw, &ch)) return 0; nat = cw + mg; }
+    else if (s->fbasis > 0) nat = S(s->fbasis) + (s->bbox ? 0 : ex) + mg;
+    else if (s->width) nat = S(s->width) + (s->bbox ? 0 : ex) + mg;
+    else if (s->wpct) nat = avail * s->wpct / 100 + S(s->wadd);
+    else {
+        int sy = ly, sp = lpend, d0 = LP->ndi; ly = 0; lpend = 0; force_tw = 1; layout_block(e, 0, avail);
+        int maxr = 0; for (int i = d0; i < LP->ndi; i++) { DI *d = &LP->di[i]; if (d->kind == DI_TEXT || d->kind == DI_FIELD) { int r = d->x + d->w; if (r > maxr) maxr = r; } }
+        di_truncate(d0); ly = sy; lpend = sp; nat = maxr + S(s->pr) + br + mg + S(2);
+        if (nat < ex + mg) nat = ex + mg;
+    }
+    if (s->maxw && nat > S(s->maxw) + (s->bbox ? 0 : ex) + mg) nat = S(s->maxw) + (s->bbox ? 0 : ex) + mg;
+    if (s->minw && nat < S(s->minw) + (s->bbox ? 0 : ex) + mg) nat = S(s->minw) + (s->bbox ? 0 : ex) + mg;
+    return nat > avail ? avail : nat;
+}
+static int item_height(Node *e, int xi, int wi) {         /* trial layout: height only */
+    int sy = ly, sp = lpend, d0 = LP->ndi; ly = 0; lpend = 0; force_tw = 1; layout_block(e, xi, wi); int h = ly + lpend; di_truncate(d0); ly = sy; lpend = sp; return h;
+}
+static void place_item(Node *e, int xi, int yi, int wi, int hforce) {
+    int sy = ly, sp = lpend; ly = yi; lpend = 0; force_tw = 1; force_h = hforce; layout_block(e, xi, wi); ly = sy; lpend = sp;
+}
+static void layout_flex(Node *n, int x, int w) {
+    const Style *fs = &n->st; int col = fs->col && !fs->isgrid, cg = S(fs->cgap), rg = S(fs->rgap);
+    Node *items[96]; int ni = 0;
+    LB tl; memset(&tl, 0, sizeof tl); tl.x = x; tl.w = w; tl.align = fs->align;                 /* stray text inside the container */
+    for (Node *c = n->first; c && ni < 96; c = c->next) {
+        if (c->type == 1) { add_text(&tl, c, &n->st); continue; }
+        if (c->st.display == D_NONE || !strcmp(c->tag, "br")) continue;
+        if (c->st.display == D_INLINE && !strcmp(c->tag, "span") && c->gen == 0 && 0) continue;
+        items[ni++] = c;
+    }
+    flush_lines(&tl); free(tl.it);
+    if (!ni) return;
+    flush_pending();
+    if (col) {
+        for (int i = 0; i < ni; i++) {
+            Node *e = items[i]; int wi = w, xi = x;
+            if (fs->aitems) { int nat = item_natural(e, w); if (nat > 0 && nat < w) { wi = nat; xi = fs->aitems == 2 ? x + (w - nat) / 2 : fs->aitems == 3 ? x + w - nat : x; } }
+            if (e->st.automl && e->st.automr) { int nat = item_natural(e, w); if (nat > 0 && nat < w) { wi = nat; xi = x + (w - nat) / 2; } }
+            place_item(e, xi, ly, wi, 0); flush_pending(); if (i + 1 < ni) ly += rg;
+        }
+        return;
+    }
+    int widths[96], cols[16], ncols = 0;
+    if (fs->isgrid) {
+        int ng = fs->ngtrack ? fs->ngtrack : 1; int tr[16];
+        if (fs->gautofill) { int per = S(fs->gmin) + cg; int cnt = per > 0 ? (w + cg) / per : 1; if (cnt < 1) cnt = 1; if (cnt > 12) cnt = 12; for (int i = 0; i < cnt; i++) tr[i] = fs->gtrack[0]; ng = cnt; }
+        else for (int i = 0; i < ng; i++) tr[i] = fs->gtrack[i];
+        int fixed = 0; int frs = 0; for (int i = 0; i < ng; i++) { if (tr[i] > 0) fixed += S(tr[i]); else frs += -tr[i] ? -tr[i] : 10; }
+        int free_ = w - fixed - cg * (ng - 1); if (free_ < 0) free_ = 0;
+        for (int i = 0; i < ng; i++) cols[i] = tr[i] > 0 ? S(tr[i]) : (frs ? free_ * (-tr[i] ? -tr[i] : 10) / frs : 0);
+        ncols = ng;
+        for (int i = 0; i < ni; i += ncols) {
+            int rowh = 0, hs[16];
+            for (int k = 0; k < ncols && i + k < ni; k++) { hs[k] = item_height(items[i + k], x, cols[k]); if (hs[k] > rowh) rowh = hs[k]; }
+            int xi = x;
+            for (int k = 0; k < ncols && i + k < ni; k++) { place_item(items[i + k], xi, ly, cols[k], fs->aitems == 0 || fs->aitems == 4 ? rowh : 0); xi += cols[k] + cg; }
+            ly += rowh; if (i + ncols < ni) ly += rg;
+        }
+        return;
+    }
+    /* row flex: natural widths, line breaking, grow / shrink, justify */
+    for (int i = 0; i < ni; i++) { widths[i] = item_natural(items[i], w); if (widths[i] <= 0) widths[i] = 1; }
+    int a = 0;
+    while (a < ni) {
+        int b = a, sum = 0;
+        while (b < ni) { int need = widths[b] + (b > a ? cg : 0); if (fs->flexwrap && b > a && sum + need > w) break; sum += need; b++; }
+        int cnt = b - a, free_ = w - sum, grow = 0, autos = 0;
+        for (int i = a; i < b; i++) { grow += items[i]->st.fgrow; if (items[i]->st.automl) autos++; }
+        if (free_ < 0 && !fs->flexwrap) { int total = 0; for (int i = a; i < b; i++) total += widths[i]; int over = -free_; for (int i = a; i < b; i++) { widths[i] -= over * widths[i] / (total ? total : 1); if (widths[i] < S(24)) widths[i] = S(24); } free_ = 0; }
+        if (free_ > 0 && grow > 0) { int left = free_; for (int i = a; i < b; i++) { int g = free_ * items[i]->st.fgrow / grow; widths[i] += g; left -= g; } widths[b - 1] += left > 0 ? 0 : 0; free_ = 0; }
+        int off = 0, between = 0, per_auto = autos && free_ > 0 ? free_ / autos : 0; if (autos && free_ > 0) free_ = 0;
+        if (free_ > 0) { if (fs->jcenter == 1) off = free_ / 2; else if (fs->jcenter == 2) off = free_; else if (fs->jcenter == 3 && cnt > 1) between = free_ / (cnt - 1); else if (fs->jcenter == 4) { between = free_ / cnt; off = between / 2; } else if (fs->jcenter == 5) { between = free_ / (cnt + 1); off = between; } }
+        int lineh = 0, hs[96]; for (int i = a; i < b; i++) { hs[i] = item_height(items[i], x, widths[i]); if (hs[i] > lineh) lineh = hs[i]; }
+        int xi = x + off;
+        for (int i = a; i < b; i++) {
+            if (items[i]->st.automl) xi += per_auto;
+            int yo = fs->aitems == 2 ? (lineh - hs[i]) / 2 : fs->aitems == 3 ? lineh - hs[i] : 0;
+            place_item(items[i], xi, ly + yo, widths[i], fs->aitems == 0 ? lineh : 0);
+            xi += widths[i] + cg + between;
+        }
+        ly += lineh; a = b; if (a < ni) ly += rg;
+    }
+}
+
 static void layout_block(Node *n, int x, int w) {
     const Style *s = &n->st;
     int ml = S(s->ml), mr = S(s->mr), pl = S(s->pl), pr = S(s->pr), pt = S(s->pt), pb = S(s->pb);
     int bwid = s->bsides ? S(s->bw) : 0; if (s->bsides && !bwid) bwid = 1;
     int bt = (s->bsides & 1) ? bwid : 0, br = (s->bsides & 2) ? bwid : 0, bb = (s->bsides & 4) ? bwid : 0, bl = (s->bsides & 8) ? bwid : 0;
-    int avail = w - ml - mr, tw = avail;
-    if (s->width) tw = S(s->width) + pl + pr + bl + br; else if (s->wpct) tw = avail * s->wpct / 100;
-    if (s->maxw && tw > S(s->maxw) + pl + pr + bl + br) tw = S(s->maxw) + pl + pr + bl + br;
-    if (s->minw && tw < S(s->minw)) tw = S(s->minw);
-    if (tw > avail && !s->width) tw = avail; if (tw < 8) tw = 8;
+    int avail = w - ml - mr, tw = avail; int ftw = force_tw, fh = force_h; force_tw = 0; force_h = 0;
+    int ex = s->bbox ? 0 : pl + pr + bl + br;
+    if (!ftw) {
+        if (s->width) tw = S(s->width) + ex; else if (s->wpct) tw = avail * s->wpct / 100 + S(s->wadd) + (s->wadd || s->bbox ? 0 : 0);
+        if (s->maxw && tw > S(s->maxw) + ex) tw = S(s->maxw) + ex;
+        if (s->minw && tw < S(s->minw) + ex) tw = S(s->minw) + ex;
+        if (tw > avail && !s->width) tw = avail;
+    }
+    if (tw < 8) tw = 8;
     if (s->automl && s->automr && tw < avail) { ml = (avail - tw) / 2; }
     else if (s->automl && tw < avail) ml = avail - tw - mr;
     int x0 = x + ml, mt = S(s->mt), mb = S(s->mb);
@@ -190,7 +286,7 @@ static void layout_block(Node *n, int x, int w) {
     if (box) { bi = di_add(DI_BOX, x0, top, tw, 0); DI *d = &LP->di[bi]; d->c = s->bg; d->c2 = s->bc; d->px = bwid; d->ul = s->bsides; d->strike = s->has_bg; d->radius = S(s->radius); d->node = n; }
     ly += pt + bt;
     int cx = x0 + bl + pl, cw = tw - bl - br - pl - pr; if (cw < 4) cw = 4;
-    if (s->display == D_LISTITEM) {
+    if (s->display == D_LISTITEM && !s->nolist) {
         int idx = 1; for (Node *p = n->prev; p; p = p->prev) if (!p->type && p->st.display == D_LISTITEM) idx++;
         char mk[16]; if (n->parent && !strcmp(n->parent->tag, "ol")) snprintf(mk, sizeof mk, "%d.", idx); else snprintf(mk, sizeof mk, "\xe2\x80\xa2");
         flush_pending();
@@ -198,9 +294,10 @@ static void layout_block(Node *n, int x, int w) {
     }
     int content_top = ly;
     layout_children(n, cx, cw);
-    if (s->height && ly - content_top < S(s->height)) { flush_pending(); ly = content_top + S(s->height); }
+    if (s->height && ly - content_top < S(s->height) - (s->bbox ? pt + pb + bt + bb : 0)) { flush_pending(); ly = content_top + S(s->height) - (s->bbox ? pt + pb + bt + bb : 0); }
     if (box || pb || bb) flush_pending();
     ly += pb + bb;
+    if (fh > ly - top) { ly = top + fh; }
     if (bi >= 0) LP->di[bi].h = ly - top;
     if (mb > lpend) lpend = mb;
 }

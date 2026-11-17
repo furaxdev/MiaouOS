@@ -336,6 +336,7 @@ static void br_draw(Win *w, int x, int y, int cw, int ch) {
     Page *pg = b->pg; int cwid = content_w(w), chh = ch - top - S(26);
     u32 pbg = RGB(255, 255, 255);
     if (pg) {
+        if (pg->has_hover && hover(x, y + top, cwid, chh)) { Node *hn = lay_hit(pg, mouse_x - w->cx, mouse_y - w->cy - top + b->scroll); if (hn != pg->hover) { pg->hover = hn; pg->dirty = 1; } }
         if (pg->dirty || pg->layout_w != cwid) relayout(b, cwid);
         Node *body = wn_find_tag(pg->doc, "body"), *html = wn_find_tag(pg->doc, "html");
         if (body && body->st.has_bg) pbg = body->st.bg; else if (html && html->st.has_bg) pbg = html->st.bg;
