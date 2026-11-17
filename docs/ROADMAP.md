@@ -5,7 +5,8 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 ## Noyau et démarrage
 - [x] Compilation du noyau et BusyBox en CI.
 - [x] Initramfs et lancement de MiaouDesk en console.
-- [ ] Tests QEMU entièrement verts et reproductibles.
+- [x] Tests QEMU avec captures PNG réelles et interactions souris/clavier (CI).
+- [ ] Tests QEMU entièrement verts et reproductibles pour chaque nouvelle version.
 - [ ] Comptes utilisateurs, permissions, journaux, réseau et arrêt propre.
 - [ ] Détection matérielle et installation sur de vraies machines.
 
@@ -21,9 +22,16 @@ MiaouOS doit devenir un système Linux réellement utilisable, accessible et dis
 - [ ] Toolkit graphique partagé et catalogue en ligne.
 
 ## MiaouDesk graphique
-- [ ] Serveur graphique/compositeur, sessions et fenêtres.
-- [ ] Panneau, dock, lanceur, notifications et paramètres.
-- [ ] Gestionnaire de fichiers, terminal, éditeur, navigateur et accessibilité tactile.
+- [x] Gestionnaire de fenêtres framebuffer : déplacement, redimensionnement 8 bords, aimantation, minimisation, maximisation, fermeture, Alt+Tab.
+- [x] Panneau de type Plasma, lanceur avec recherche, icônes de bureau, menu contextuel, notifications, thèmes clair/sombre, accent, échelle automatique.
+- [x] Entrées : clavier AZERTY/QWERTY (codes bruts), souris/tablette/tactile via evdev.
+- [x] Terminal (pty), Fichiers, Notes, Calculatrice, Visionneuse, Horloge, Navigateur texte, Boutique (miaou-get), Moniteur, Réseau (DHCP), Paramètres.
+- [x] Écran de connexion, comptes (SHA-256 salé), verrouillage, bureaux virtuels, centre de contrôle, « Exécuter », animations.
+- [ ] Stockage persistant (comptes, fichiers, réglages) et chiffrement.
+- [ ] Serveur graphique/compositeur et sessions.
+- [ ] Navigateur avec moteur web (CSS, JavaScript, images), HTTPS vérifié.
+- [ ] Presse-papiers, glisser-déposer, accessibilité, son.
+- [ ] Bluetooth, Wi-Fi, multi-écran via DRM/KMS, changement de résolution à chaud.
 
 ## Miaou Cursors
 - [x] Détection et sélection de thèmes de curseurs existants.

@@ -8,7 +8,8 @@ MiaouOS est une distribution Linux indépendante construite depuis les sources a
 
 - Noyau Linux 6.12.30 et BusyBox 1.37.0 compilés depuis les sources.
 - Initramfs et processus `/init` propres à MiaouOS.
-- MiaouDesk : lanceur graphique framebuffer (si le noyau fournit `/dev/fb0`) avec clics souris et raccourcis clavier; repli automatique vers la console.
+- MiaouDesk : bureau graphique en C sur framebuffer, style Plasma : écran de connexion avec comptes, animations, sélection sur le bureau, bureaux virtuels, centre de contrôle, « Exécuter », et des applications réelles (Terminal, Fichiers, Notes, Calculatrice, Visionneuse, Horloge, Navigateur texte, Boutique, Moniteur, Réseau, Paramètres). Voir `docs/GRAPHICAL-DESKTOP.md`. Repli automatique vers la console.
+- Compte de démonstration : utilisateur `miaou`, mot de passe `miaou` (à changer dans Paramètres → Comptes) ; compte `invite` sans mot de passe.
 - Lanceur console `miaou-apps`.
 - Outils console `miaou-files`, `miaou-monitor`, `miaou-network`.
 - Miaou Store (`miaou`) et interface scriptable `miaou-get`, avec moteur partagé et format local `.miaou`.
@@ -20,9 +21,9 @@ MiaouOS est une distribution Linux indépendante construite depuis les sources a
 
 ## État réel — à lire avant test
 
-**Cette branche n'est pas encore un OS de bureau complet.** Le bureau graphique actuel est un lanceur framebuffer à plein écran, pas encore une session Wayland ni un gestionnaire de fenêtres avec fenêtres redimensionnables. L'installateur, le dépôt réseau signé, les dépendances du gestionnaire de paquets et la compatibilité Windows validée restent à faire. Miaou Neko est une animation console, pas encore un compagnon flottant sur un bureau graphique. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
+**Cette branche n'est pas encore un OS de bureau complet.** MiaouDesk fournit un bureau framebuffer et un gestionnaire de fenêtres léger, mais pas encore une session Wayland ni un compositeur moderne. L'installateur, le dépôt réseau signé, les dépendances du gestionnaire de paquets et la compatibilité Windows validée restent à faire. Miaou Neko est encore une animation console, pas un compagnon flottant intégré au bureau. Les applications installées via le prototype sont isolées sous `/opt/miaou/packages/` et ne sont pas ajoutées au PATH.
 
-Les cases de la feuille de route indiquent le code présent, pas nécessairement des tests d'exécution réussis. Le CI doit confirmer la compilation et le démarrage QEMU avant de considérer l'image vérifiée.
+Le Bluetooth, la gestion multi-écran, le tactile et les applications graphiques complètes ne sont pas encore implémentés. Les cases de la feuille de route indiquent le code présent, pas nécessairement des tests d'exécution réussis. Le CI doit confirmer la compilation et le démarrage QEMU avant de considérer l'image vérifiée.
 
 ## Commandes utiles
 

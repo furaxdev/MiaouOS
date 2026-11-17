@@ -1,0 +1,5 @@
+NAME="MiaouOS"
+PRETTY_NAME="MiaouOS 0.2 - Le Linux des chats"
+ID=miaouos
+VERSION_ID=0.2
+HOME_URL="https://github.com/furaxdev/MiaouOS"

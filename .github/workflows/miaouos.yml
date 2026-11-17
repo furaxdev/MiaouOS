@@ -23,18 +23,30 @@ jobs:
       - name: Install build and emulator tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3 grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools
+          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev cpio xz-utils wget qemu-system-x86 xvfb python3 grub-common grub-pc-bin grub-efi-amd64-bin xorriso mtools python3-pil
 
       - name: Check shell syntax and package engine
         run: |
-          gcc -fsyntax-only -std=c11 -Wall -Wextra ./src/miaoudesk-gui.c
-          bash -n ./scripts/build.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh ./scripts/test-iso-qemu.sh
-          sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/bin/miaou-cursors ./src/usr/bin/miaou-neko ./src/usr/bin/miaou-settings ./src/usr/bin/miaou-files ./src/usr/bin/miaou-monitor ./src/usr/bin/miaou-network ./src/usr/bin/miaou-run ./src/usr/bin/miaou-apps ./src/usr/lib/miaou/package-engine.sh ./src/usr/lib/miaou/ui.sh ./src/usr/lib/miaou/cursors.sh ./src/usr/lib/miaou/neko.sh
+          gcc -std=gnu11 -O2 -Wall -Wextra -Werror -Wno-unused-parameter -Wno-misleading-indentation -Wno-format-truncation -Wno-missing-field-initializers -static ./src/desk/*.c -o /tmp/miaoudesk-gui-check -lm
+          bash -n ./scripts/build.sh ./scripts/install-miaou.sh ./scripts/test-package-engine.sh ./scripts/test-miaou-ui.sh ./scripts/test-iso-qemu.sh ./scripts/test-qemu.sh
+          python3 -m py_compile ./scripts/qemu_test.py
+          sh -n ./src/init ./src/miaoudesk.sh ./src/usr/bin/miaou ./src/usr/bin/miaou-get ./src/usr/bin/miaou-cursors ./src/usr/bin/miaou-neko ./src/usr/bin/miaou-settings ./src/usr/bin/miaou-files ./src/usr/bin/miaou-monitor ./src/usr/bin/miaou-network ./src/usr/bin/miaou-run ./src/usr/bin/miaou-apps ./src/usr/lib/miaou/package-engine.sh ./src/usr/lib/miaou/ui.sh ./src/usr/lib/miaou/cursors.sh ./src/usr/lib/miaou/neko.sh ./src/etc/udhcpc.script ./src/etc/profile ./packages/miaou-fortune/payload/usr/bin/miaou-fortune ./packages/miaou-sysinfo/payload/usr/bin/miaou-sysinfo
           bash ./scripts/test-miaou-ui.sh
           sudo --preserve-env=MIAOU_DB,MIAOU_CACHE,MIAOU_REPO,MIAOU_PACKAGE_ROOT bash ./scripts/test-package-engine.sh
 
       - name: Build independent Linux system
         run: JOBS=2 bash ./scripts/build.sh
+
+      - name: Record provenance of this build
+        run: |
+          mkdir -p build
+          {
+            echo "commit=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF}"
+            echo "run_id=${GITHUB_RUN_ID} run_number=${GITHUB_RUN_NUMBER}"
+            echo "built_at_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            sha256sum build/miaouos-kernel-bzImage build/miaouos-initramfs.cpio.gz build/miaouos.iso
+          } | tee build/PROVENANCE.txt
 
       - name: Boot in QEMU and capture screen
         run: xvfb-run -a bash ./scripts/test-qemu.sh
@@ -52,8 +64,15 @@ jobs:
             build/miaouos-initramfs.cpio.gz
             build/miaouos.iso
             build/iso-serial.log
+            build/iso-serial-final.log
             build/SHA256SUMS
+            build/PROVENANCE.txt
             build/qemu-serial.log
+            build/serial-fr-final.log
+            build/serial-1024-final.log
+            build/serial-tools-final.log
+            build/serial-apps2-final.log
+            build/serial-session-final.log
             build/screenshots/*.png
           if-no-files-found: warn
           retention-days: 14

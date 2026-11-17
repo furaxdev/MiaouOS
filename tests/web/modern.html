@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Test moderne</title>
+<style>
+:root { --accent: #f2a93b; --ink: #26323a; --gap: 12px; --r: 12px; }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; color: var(--ink); background: linear-gradient(#fff8ec, #ffe9c7); }
+header { padding: calc(var(--gap) * 2); background: var(--ink); color: #fff; }
+header h1 { margin: 0; font-size: clamp(20px, 3vw, 34px); }
+main { max-width: 900px; margin: 0 auto; padding: var(--gap); }
+.cards { display: flex; flex-wrap: wrap; gap: var(--gap); }
+.card { flex: 1 1 200px; padding: var(--gap); border: 2px solid var(--accent); border-radius: var(--r); background: #fff; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: var(--gap); }
+.grid div { background: color-mix(in srgb, var(--accent) 40%, white); padding: 10px; border-radius: 8px; text-align: center; }
+.row { display: flex; justify-content: space-between; align-items: center; margin-top: var(--gap); }
+button.primary { background: var(--accent); color: var(--ink); border: 0; padding: 8px 16px; border-radius: 999px; font-weight: 700; }
+li:nth-child(2n) { color: #c2410c; } li:not(:last-child)::after { content: " ·"; }
+#log { font-family: monospace; background: #111; color: #9f9; padding: 10px; border-radius: 8px; min-height: 40px; }
+</style></head>
+<body>
+<header><h1>Miaou Web · JavaScript et CSS modernes</h1></header>
+<main>
+<div class="cards"><div class="card"><b>Flexbox</b><br>wrap + gap + flex-grow</div><div class="card"><b>Variables</b><br>var() + calc()</div><div class="card"><b>Grille</b><br>repeat(3, 1fr)</div></div>
+<div class="grid"><div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div></div>
+<div class="row"><span>Compteur : <b id="n">0</b></span><button class="primary" id="go">+1 (async)</button></div>
+<ul><li>un</li><li>deux</li><li>trois</li><li>quatre</li></ul>
+<pre id="log"></pre>
+</main>
+<script type="module">
+import Counter, { greet } from './mod.js';
+const log = (...a) => document.getElementById('log').append(a.join(' ') + '\n');
+const c = new Counter(); const el = document.getElementById('n');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+document.getElementById('go').addEventListener('click', async () => { await sleep(50); el.textContent = c.inc(); log(`clic #${el.textContent}`); });
+log(greet('Furax')); log([1, 2, 3].map(x => x ** 2).join(','), 2n ** 70n, Object.entries({ a: 1 }).flat().join(), `${[..."chat"].reverse().join('')}`, null ?? 'nullish', ({ a: { b: 2 } }).a?.b);
+const r = await fetch('mod.js'); log('fetch', (await r.text()).length, 'octets');
+class Animal { static n = 0; constructor(name) { this.name = name; Animal.n++; } speak() { return `${this.name} fait miaou`; } }
+log(new Animal('Chaton').speak(), Animal.n, new URL('/x?y=1', 'http://a.b/c').searchParams.get('y'));
+</script>
+</body></html>

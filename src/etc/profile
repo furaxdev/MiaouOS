@@ -1,0 +1,9 @@
+# MiaouOS login profile
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+export HOME=/root
+alias ls='ls --color=auto'
+alias ll='ls -lah --color=auto'
+alias miaou-store='miaou'
+printf '\033[1;35m /\\_/\\ \033[0m  Miaou ! Bienvenue dans MiaouOS.\n'
+printf '\033[1;35m( o.o )\033[0m  Essayez : ls, top, ping 10.0.2.2, miaou-get help\n'
+printf '\033[1;35m > ^ < \033[0m\n'

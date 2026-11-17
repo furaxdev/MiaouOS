@@ -1,0 +1,7 @@
+#!/bin/sh
+printf 'MiaouOS — résumé système\n'
+printf 'Noyau       : %s\n' "$(uname -sr)"
+printf 'Machine     : %s\n' "$(uname -m)"
+printf 'Fonctionne  : %s\n' "$(cut -d. -f1 /proc/uptime) s"
+awk '/MemTotal|MemAvailable/ {printf "%-12s: %d Mo\n", $1, $2/1024}' /proc/meminfo
+printf 'Processus   : %s\n' "$(ls /proc | grep -c '^[0-9]')"
